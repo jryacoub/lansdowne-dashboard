@@ -227,7 +227,7 @@ export default function Home() {
 
       <div style={{ marginTop: 40, display: 'flex', gap: 24, width: '100%' }}>
         {/* Breakdown by Type Table */}
-        <div style={{ background: '#111', borderRadius: 12, padding: 20, flex: 1, minWidth: 0 }}>
+        <div style={{ background: '#111', borderRadius: 12, padding: 20, minWidth: 280 }}>
           <h2 style={{ marginBottom: 12, fontWeight: 'bold' }}>Breakdown by Type</h2>
           <table style={{
             width: '100%',
@@ -237,14 +237,14 @@ export default function Home() {
           }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #444' }}>
-                <th align="left" style={{ padding: '8px 2px 8px 8px', fontWeight: 'bold' }}>Type</th>
+                <th align="left" style={{ padding: '8px 2px 8px 8px', width: 110, whiteSpace: 'nowrap', fontWeight: 'bold' }}>Type</th>
                 <th align="right" style={{ padding: 8, fontWeight: 'bold' }}>Total (£)</th>
               </tr>
             </thead>
             <tbody>
               {breakdownRows.map((row) => (
                 <tr key={row.type} style={{ borderBottom: '1px solid #222' }}>
-                  <td style={{ padding: '8px 2px 8px 8px' }}>{row.type}</td>
+                  <td style={{ padding: '8px 2px 8px 8px', width: 110, whiteSpace: 'nowrap' }}>{row.type}</td>
                   <td align="right" style={{ padding: 8 }}>
                     {row.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </td>
@@ -263,8 +263,8 @@ export default function Home() {
         </div>
 
         {/* Fees, Disbursements & Utilities Pie Chart */}
-        <div style={{ background: '#111', borderRadius: 12, padding: 20, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', minWidth: 0 }}>
-          <h2 style={{ marginBottom: 12, fontWeight: 'bold', textAlign: 'center', width: '100%' }}>Breakdown by Type (Excl. Rent)</h2>
+        <div style={{ background: '#111', borderRadius: 12, padding: 20, minWidth: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+          <h2 style={{ marginBottom: 12, fontWeight: 'bold', width: '100%' }}>Breakdown by Type (Excl. Rent)</h2>
           {(() => {
             const filteredBreakdown = breakdownRows.filter(row => row.type !== 'Rent Paid');
             const chartData = {
