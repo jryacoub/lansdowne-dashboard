@@ -1,7 +1,11 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { Pie } from 'react-chartjs-2'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { supabase } from '@/lib/supabase'
+
+ChartJS.register(ArcElement, Tooltip, Legend)
 
 // Custom Dropdown Filter component
 function DropdownFilter({ options, selected, onChange, label }: { options: string[], selected: string[], onChange: (values: string[]) => void, label: string }) {
@@ -170,9 +174,9 @@ export default function Home() {
         marginBottom: 30,
         fontWeight: 'bold',
         fontSize: 38,
-        color: '#4f46e5', // Standout indigo color
+        color: '#cc6600', // Darker burnt orange color
         letterSpacing: 1,
-        textShadow: '0 2px 16px rgba(79,70,229,0.18)',
+        textShadow: '0 2px 16px rgba(204,102,0,0.18)',
         lineHeight: 1.1
       }}>
         Lansdowne Investments - P&L
@@ -221,41 +225,62 @@ export default function Home() {
         </div>
       </div>
 
-      <div style={{ marginTop: 40, width: 700, maxWidth: '100%', background: '#111', borderRadius: 12, padding: 20 }}>
-        <h2 style={{ marginBottom: 12, fontWeight: 'bold' }}>Breakdown by Type</h2>
-        <table style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          background: 'transparent',
-          borderRadius: 8
-        }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #444' }}>
-              <th align="left" style={{ padding: '8px 2px 8px 8px', width: 110, whiteSpace: 'nowrap', fontWeight: 'bold' }}>Type</th>
-              <th align="right" style={{ padding: 8, fontWeight: 'bold' }}>Total (£)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {breakdownRows.map((row) => (
-              <tr key={row.type} style={{ borderBottom: '1px solid #222' }}>
-                <td style={{ padding: '8px 2px 8px 8px', width: 110, whiteSpace: 'nowrap' }}>{row.type}</td>
+      <div style={{ marginTop: 40, display: 'flex', gap: 24, width: '100%' }}>
+        {/* Breakdown by Type Table */}
+        <div style={{ background: '#111', borderRadius: 12, padding: 20, minWidth: 280 }}>
+          <h2 style={{ marginBottom: 12, fontWeight: 'bold' }}>Breakdown by Type</h2>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            background: 'transparent',
+            borderRadius: 8
+          }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #444' }}>
+                <th align="left" style={{ padding: '8px 2px 8px 8px', width: 110, whiteSpace: 'nowrap', fontWeight: 'bold' }}>Type</th>
+                <th align="right" style={{ padding: 8, fontWeight: 'bold' }}>Total (£)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakdownRows.map((row) => (
+                <tr key={row.type} style={{ borderBottom: '1px solid #222' }}>
+                  <td style={{ padding: '8px 2px 8px 8px', width: 110, whiteSpace: 'nowrap' }}>{row.type}</td>
+                  <td align="right" style={{ padding: 8 }}>
+                    {row.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '2px solid #444', fontWeight: 'bold', background: '#181818' }}>
+                <td style={{ padding: '8px 2px 8px 8px' }}>Total</td>
                 <td align="right" style={{ padding: 8 }}>
-                  {row.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {breakdownRows.reduce((sum, row) => sum + row.total, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </td>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ borderTop: '2px solid #444', fontWeight: 'bold', background: '#181818' }}>
-              <td style={{ padding: '8px 2px 8px 8px' }}>Total</td>
-              <td align="right" style={{ padding: 8 }}>
-                {breakdownRows.reduce((sum, row) => sum + row.total, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-        <div style={{ height: 32 }} />
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Fees, Disbursements & Utilities Pie Chart */}
+        <div style={{ background: '#111', borderRadius: 12, padding: 20, minWidth: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+          <h2 style={{ marginBottom: 12, fontWeight: 'bold', width: '100%' }}>Breakdown by Type (Excl. Rent)</h2>
+          {(() => {
+            const filteredBreakdown = breakdownRows.filter(row => row.type !== 'Rent Paid');
+            const chartData = {
+              labels: filteredBreakdown.map(row => row.type),
+              datasets: [{
+                data: filteredBreakdown.map(row => Math.abs(row.total)),
+                backgroundColor: ['#ff6b6b', '#4ecdc4', '#ffa500'],
+                borderColor: '#222',
+                borderWidth: 2,
+              }]
+            };
+            return <Pie data={chartData} options={{ responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#eee', font: { size: 12 } } } } }} style={{ maxWidth: 260 }} />;
+          })()}
+        </div>
       </div>
+
       <div style={{
         marginTop: 40,
         background: '#111',
@@ -265,6 +290,7 @@ export default function Home() {
         overflowY: 'auto',
         width: '100%'
       }}>
+        <h2 style={{ marginBottom: 12, fontWeight: 'bold' }}>Property Breakdown</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #444' }}>
