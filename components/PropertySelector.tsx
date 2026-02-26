@@ -8,6 +8,7 @@ interface Property {
   address: string
   city: string
   purchase_price: number
+  deposit_pct_phase1: number
   cash_deposit_phase1: number
   stamp_duty: number
   solicitor_fees: number
