@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { supabase } from '@/lib/supabase'
+import PropertySelector from '@/components/PropertySelector'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -181,6 +182,12 @@ export default function Home() {
       }}>
         Lansdowne Investments - P&L
       </h1>
+
+      {/* Property Selector — per-property ROI, equity, yield & cashflow */}
+      <PropertySelector />
+
+      <hr style={{ border: 'none', borderTop: '1px solid #333', margin: '48px 0 32px' }} />
+
       {/* Date Range Filters */}
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24 }}>
         <label style={{ color: '#eee', fontWeight: 500 }}>
