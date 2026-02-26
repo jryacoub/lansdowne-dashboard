@@ -60,7 +60,27 @@ function fmtPct(n: number) {
   return n.toFixed(1) + '%'
 }
 
-function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+function DummyTag() {
+  return (
+    <span style={{
+      fontSize: 9,
+      fontWeight: 700,
+      color: '#ef4444',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      marginLeft: 6,
+      border: '1px solid #ef444466',
+      borderRadius: 3,
+      padding: '1px 4px',
+      verticalAlign: 'middle',
+      lineHeight: 1,
+    }}>
+      dummy
+    </span>
+  )
+}
+
+function KpiCard({ label, value, sub, color, dummy }: { label: string; value: string; sub?: string; color?: string; dummy?: boolean }) {
   return (
     <div style={{
       background: '#1a1a1a',
@@ -69,19 +89,27 @@ function KpiCard({ label, value, sub, color }: { label: string; value: string; s
       flex: 1,
       minWidth: 160,
       borderTop: `3px solid ${color || '#cc6600'}`,
+      position: 'relative',
     }}>
       <div style={{ fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 'bold', color: color || '#fff' }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{sub}</div>}
+      {dummy && (
+        <div style={{ fontSize: 9, color: '#ef4444', fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 6 }}>
+          ● projected / dummy data
+        </div>
+      )}
     </div>
   )
 }
 
-function StatRow({ label, value }: { label: string; value: string }) {
+function StatRow({ label, value, dummy }: { label: string; value: string; dummy?: boolean }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #222' }}>
       <span style={{ color: '#888', fontSize: 13 }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 500 }}>{value}</span>
+      <span style={{ fontSize: 13, fontWeight: 500 }}>
+        {value}{dummy && <DummyTag />}
+      </span>
     </div>
   )
 }
@@ -162,6 +190,17 @@ export default function PropertySelector() {
 
   return (
     <div style={{ marginTop: 48, fontFamily: 'system-ui' }}>
+      {/* Dummy data warning banner */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        background: '#1a0505', border: '1px solid #ef444455',
+        borderRadius: 6, padding: '5px 12px', marginBottom: 16,
+        fontSize: 11, color: '#ef4444', fontWeight: 600, letterSpacing: 0.4,
+      }}>
+        <span>●</span>
+        <span>Phase 2 figures, valuations, yields and cashflows are projected / dummy data — acquisition costs (Phase 1) are real</span>
+      </div>
+
       {/* Header + Dropdown */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
         <h2 style={{ fontWeight: 'bold', fontSize: 24, color: '#cc6600', margin: 0 }}>
@@ -207,24 +246,28 @@ export default function PropertySelector() {
           value={fmtPct(roi)}
           sub={`£${fmt(netCashInvested)} net invested`}
           color={roiColor}
+          dummy
         />
         <KpiCard
           label="Equity"
           value={`£${fmt(equity)}`}
           sub={`£${fmt(property.market_value_est)} est. value`}
           color="#60a5fa"
+          dummy
         />
         <KpiCard
           label="Gross Yield"
           value={fmtPct(grossYield)}
           sub={`Net yield ${fmtPct(netYield)}`}
           color="#a78bfa"
+          dummy
         />
         <KpiCard
           label="Monthly Cashflow"
           value={`£${fmt(monthlyCashflow)}`}
           sub={`£${fmt(annualCashflow)} / year`}
           color={cashflowColor}
+          dummy
         />
       </div>
 
@@ -244,8 +287,8 @@ export default function PropertySelector() {
           <StatRow label="Renovation cost" value={`£${fmt(property.renovation_cost)}`} />
           <StatRow label="Renovation mgmt fee" value={`£${fmt(property.renovation_mgmt_fee)}`} />
           <StatRow label="Total cash deployed" value={`£${fmt(totalCashInvested)}`} />
-          <StatRow label="Equity released" value={`£${fmt(property.equity_release)}`} />
-          <StatRow label="Net cash in deal" value={`£${fmt(netCashInvested)}`} />
+          <StatRow label="Equity released" value={`£${fmt(property.equity_release)}`} dummy />
+          <StatRow label="Net cash in deal" value={`£${fmt(netCashInvested)}`} dummy />
         </div>
 
         {/* Income & Costs */}
@@ -253,16 +296,16 @@ export default function PropertySelector() {
           <h3 style={{ fontWeight: 'bold', marginBottom: 12, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
             Income & Running Costs (Phase 2)
           </h3>
-          <StatRow label="Beds" value={String(property.beds_phase2)} />
-          <StatRow label="Annual rent" value={`£${fmt(property.annual_rent_phase2)}`} />
-          <StatRow label="Management" value={`-£${fmt(property.management_phase2)}`} />
-          <StatRow label="Maintenance provision" value={`-£${fmt(property.provision_costs_phase2)}`} />
-          <StatRow label="Void provision" value={`-£${fmt(property.provision_voids_phase2)}`} />
-          {property.bills_phase2 > 0 && <StatRow label="Bills" value={`-£${fmt(property.bills_phase2)}`} />}
-          <StatRow label="Mortgage interest (p.a.)" value={`-£${fmt(annualMortgageInterest)}`} />
-          <StatRow label="Mortgage rate" value={`${(property.mortgage_rate_phase2 * 100).toFixed(1)}%`} />
-          <StatRow label="Annual cashflow" value={`£${fmt(annualCashflow)}`} />
-          <StatRow label="Monthly cashflow" value={`£${fmt(monthlyCashflow)}`} />
+          <StatRow label="Beds" value={String(property.beds_phase2)} dummy />
+          <StatRow label="Annual rent" value={`£${fmt(property.annual_rent_phase2)}`} dummy />
+          <StatRow label="Management" value={`-£${fmt(property.management_phase2)}`} dummy />
+          <StatRow label="Maintenance provision" value={`-£${fmt(property.provision_costs_phase2)}`} dummy />
+          <StatRow label="Void provision" value={`-£${fmt(property.provision_voids_phase2)}`} dummy />
+          {property.bills_phase2 > 0 && <StatRow label="Bills" value={`-£${fmt(property.bills_phase2)}`} dummy />}
+          <StatRow label="Mortgage interest (p.a.)" value={`-£${fmt(annualMortgageInterest)}`} dummy />
+          <StatRow label="Mortgage rate" value={`${(property.mortgage_rate_phase2 * 100).toFixed(1)}%`} dummy />
+          <StatRow label="Annual cashflow" value={`£${fmt(annualCashflow)}`} dummy />
+          <StatRow label="Monthly cashflow" value={`£${fmt(monthlyCashflow)}`} dummy />
         </div>
 
         {/* Valuation */}
@@ -270,12 +313,12 @@ export default function PropertySelector() {
           <h3 style={{ fontWeight: 'bold', marginBottom: 12, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
             Valuation & Equity
           </h3>
-          <StatRow label="Revaluation (Phase 2)" value={`£${fmt(property.revaluation_estimate)}`} />
-          <StatRow label="Market value est." value={`£${fmt(property.market_value_est)}`} />
-          <StatRow label="Basis" value={property.market_value_basis} />
-          <StatRow label="LTV (Phase 2)" value={`${((1 - property.deposit_pct_phase2) * 100).toFixed(0)}%`} />
-          <StatRow label="Outstanding mortgage" value={`£${fmt(outstandingMortgage)}`} />
-          <StatRow label="Equity (vs market value)" value={`£${fmt(equity)}`} />
+          <StatRow label="Revaluation (Phase 2)" value={`£${fmt(property.revaluation_estimate)}`} dummy />
+          <StatRow label="Market value est." value={`£${fmt(property.market_value_est)}`} dummy />
+          <StatRow label="Basis" value={property.market_value_basis} dummy />
+          <StatRow label="LTV (Phase 2)" value={`${((1 - property.deposit_pct_phase2) * 100).toFixed(0)}%`} dummy />
+          <StatRow label="Outstanding mortgage" value={`£${fmt(outstandingMortgage)}`} dummy />
+          <StatRow label="Equity (vs market value)" value={`£${fmt(equity)}`} dummy />
           {property.notes_phase2 && <StatRow label="Notes" value={property.notes_phase2} />}
 
           {/* Capital transactions mini-list */}
@@ -300,7 +343,7 @@ export default function PropertySelector() {
       {propScenarios.length > 0 && (
         <div style={{ background: '#111', borderRadius: 12, padding: 20, marginTop: 20 }}>
           <h3 style={{ fontWeight: 'bold', marginBottom: 14, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
-            Scenarios
+            Scenarios <DummyTag />
           </h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -329,10 +372,10 @@ export default function PropertySelector() {
                       <td align="right" style={{ padding: '8px 10px' }}>{(s.mortgage_rate_phase2 * 100).toFixed(1)}%</td>
                       <td align="right" style={{ padding: '8px 10px' }}>£{fmt(s.annual_rent_phase2)}</td>
                       <td align="right" style={{ padding: '8px 10px', color: sCashflow >= 0 ? '#4ade80' : '#ef4444' }}>
-                        £{fmt(sCashflow / 12)}
+                        £{fmt(sCashflow / 12)}<DummyTag />
                       </td>
                       <td align="right" style={{ padding: '8px 10px', color: sRoi >= 10 ? '#4ade80' : sRoi >= 0 ? '#f59e0b' : '#ef4444' }}>
-                        {fmtPct(sRoi)}
+                        {fmtPct(sRoi)}<DummyTag />
                       </td>
                     </tr>
                   )
