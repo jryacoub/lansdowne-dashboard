@@ -1,7 +1,34 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Line } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from 'chart.js'
 import { supabase } from '@/lib/supabase'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
+
+// The 9 portfolio property addresses — used to filter the valuations table
+const TARGET_ADDRESSES = [
+  '70 Estcourt Avenue',
+  '66 Headingley Mount',
+  '38 St Michaels Road',
+  '32 Mayville Terrace',
+  '25 Christopher Road',
+  '8 Talbot Mount',
+  '6 Pennington Grove',
+  '6 Branksome Terrace',
+  '5 Norville Terrace',
+]
 
 interface Property {
   property_id: string
@@ -52,6 +79,15 @@ interface Scenario {
   annual_rent_phase2: number
 }
 
+interface Valuation {
+  id: number
+  property_id: string | null
+  date: string
+  value: number
+  source: string
+  address: string
+}
+
 function fmt(n: number) {
   return n.toLocaleString('en-GB', { maximumFractionDigits: 0 })
 }
@@ -60,27 +96,12 @@ function fmtPct(n: number) {
   return n.toFixed(1) + '%'
 }
 
-function DummyTag() {
-  return (
-    <span style={{
-      fontSize: 9,
-      fontWeight: 700,
-      color: '#ef4444',
-      letterSpacing: 0.6,
-      textTransform: 'uppercase',
-      marginLeft: 6,
-      border: '1px solid #ef444466',
-      borderRadius: 3,
-      padding: '1px 4px',
-      verticalAlign: 'middle',
-      lineHeight: 1,
-    }}>
-      dummy
-    </span>
-  )
+function fmtMonthYear(dateStr: string) {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
 }
 
-function KpiCard({ label, value, sub, color, dummy }: { label: string; value: string; sub?: string; color?: string; dummy?: boolean }) {
+function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div style={{
       background: '#1a1a1a',
@@ -89,27 +110,19 @@ function KpiCard({ label, value, sub, color, dummy }: { label: string; value: st
       flex: 1,
       minWidth: 160,
       borderTop: `3px solid ${color || '#cc6600'}`,
-      position: 'relative',
     }}>
       <div style={{ fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 'bold', color: color || '#fff' }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{sub}</div>}
-      {dummy && (
-        <div style={{ fontSize: 9, color: '#ef4444', fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 6 }}>
-          ● projected / dummy data
-        </div>
-      )}
     </div>
   )
 }
 
-function StatRow({ label, value, dummy }: { label: string; value: string; dummy?: boolean }) {
+function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #222' }}>
       <span style={{ color: '#888', fontSize: 13 }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 500 }}>
-        {value}{dummy && <DummyTag />}
-      </span>
+      <span style={{ fontSize: 13, fontWeight: 500 }}>{value}</span>
     </div>
   )
 }
@@ -118,15 +131,17 @@ export default function PropertySelector() {
   const [properties, setProperties] = useState<Property[]>([])
   const [capitalTransactions, setCapitalTransactions] = useState<CapitalTransaction[]>([])
   const [scenarios, setScenarios] = useState<Scenario[]>([])
+  const [valuations, setValuations] = useState<Valuation[]>([])
   const [selectedId, setSelectedId] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchAll() {
-      const [{ data: props }, { data: txns }, { data: scens }] = await Promise.all([
+      const [{ data: props }, { data: txns }, { data: scens }, { data: vals }] = await Promise.all([
         supabase.from('properties_master').select('*').order('property_id'),
         supabase.from('capital_transactions').select('*').order('property_id'),
         supabase.from('scenarios').select('*').order('property_id'),
+        supabase.from('valuations').select('*').in('address', TARGET_ADDRESSES).order('date'),
       ])
       if (props && props.length > 0) {
         setProperties(props)
@@ -134,6 +149,7 @@ export default function PropertySelector() {
       }
       if (txns) setCapitalTransactions(txns)
       if (scens) setScenarios(scens)
+      if (vals) setValuations(vals)
       setLoading(false)
     }
     fetchAll()
@@ -160,11 +176,8 @@ export default function PropertySelector() {
     property.renovation_mgmt_fee
 
   const netCashInvested = totalCashInvested - property.equity_release
-
   const outstandingMortgage = property.revaluation_estimate * (1 - property.deposit_pct_phase2)
-
   const annualMortgageInterest = outstandingMortgage * property.mortgage_rate_phase2
-
   const annualOperatingCosts =
     property.management_phase2 +
     property.provision_costs_phase2 +
@@ -173,34 +186,109 @@ export default function PropertySelector() {
 
   const annualCashflow = property.annual_rent_phase2 - annualOperatingCosts - annualMortgageInterest
   const monthlyCashflow = annualCashflow / 12
-
   const roi = netCashInvested > 0 ? (annualCashflow / netCashInvested) * 100 : 0
   const equity = property.market_value_est - outstandingMortgage
   const grossYield = (property.annual_rent_phase2 / property.market_value_est) * 100
   const netYield = ((property.annual_rent_phase2 - annualOperatingCosts) / property.market_value_est) * 100
 
-  // Capital transactions for this property
   const propTxns = capitalTransactions.filter(t => t.property_id === selectedId)
-
-  // Scenarios for this property
   const propScenarios = scenarios.filter(s => s.property_id === selectedId)
-
   const cashflowColor = monthlyCashflow >= 0 ? '#4ade80' : '#ef4444'
   const roiColor = roi >= 10 ? '#4ade80' : roi >= 0 ? '#f59e0b' : '#ef4444'
 
+  // --- Appreciation chart data ---
+  // Start with any valuations from the valuations table for this address
+  const propValuations = valuations
+    .filter(v => v.address === property.address)
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  // Build chart points: valuations table rows take priority;
+  // fall back to synthesised milestones from capital_transactions + properties_master
+  type ChartPoint = { date: string; value: number; label: string }
+  let chartPoints: ChartPoint[] = []
+
+  if (propValuations.length > 0) {
+    chartPoints = propValuations.map(v => ({
+      date: v.date,
+      value: v.value,
+      label: v.source,
+    }))
+    // Append market value estimate as the latest point if newer than last valuation
+    const lastValDate = propValuations[propValuations.length - 1].date
+    if ('2026-02-26' > lastValDate) {
+      chartPoints.push({ date: '2026-02-26', value: property.market_value_est, label: 'Market Value Estimate' })
+    }
+  } else {
+    // Synthesise from capital_transactions milestones
+    const purchaseTxn = propTxns.find(t => t.type === 'purchase')
+    const refinanceTxn = propTxns.find(t => t.type === 'refinance')
+    if (purchaseTxn) {
+      chartPoints.push({ date: purchaseTxn.date, value: property.purchase_price, label: 'Purchase Price' })
+    }
+    if (refinanceTxn) {
+      chartPoints.push({ date: refinanceTxn.date, value: property.revaluation_estimate, label: 'Base Case Revaluation' })
+    }
+    chartPoints.push({ date: '2026-02-26', value: property.market_value_est, label: 'Market Value Estimate' })
+  }
+
+  const chartData = {
+    labels: chartPoints.map(p => fmtMonthYear(p.date)),
+    datasets: [
+      {
+        label: 'Property Value',
+        data: chartPoints.map(p => p.value),
+        borderColor: '#cc6600',
+        backgroundColor: 'rgba(204,102,0,0.08)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: chartPoints.map((_, i) =>
+          i === 0 ? '#60a5fa' : i === chartPoints.length - 1 ? '#4ade80' : '#cc6600'
+        ),
+        pointBorderColor: '#111',
+        pointBorderWidth: 2,
+        borderWidth: 2.5,
+      },
+    ],
+  }
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items: any[]) => chartPoints[items[0].dataIndex]?.label || '',
+          label: (item: any) => `£${fmt(item.raw)}`,
+        },
+        backgroundColor: '#1a1a1a',
+        titleColor: '#aaa',
+        bodyColor: '#fff',
+        borderColor: '#444',
+        borderWidth: 1,
+        padding: 10,
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: '#222' },
+        ticks: { color: '#888', font: { size: 11 } },
+      },
+      y: {
+        grid: { color: '#222' },
+        ticks: {
+          color: '#888',
+          font: { size: 11 },
+          callback: (v: any) => `£${(v / 1000).toFixed(0)}k`,
+        },
+      },
+    },
+  }
+
   return (
     <div style={{ marginTop: 48, fontFamily: 'system-ui' }}>
-      {/* Dummy data warning banner */}
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        background: '#1a0505', border: '1px solid #ef444455',
-        borderRadius: 6, padding: '5px 12px', marginBottom: 16,
-        fontSize: 11, color: '#ef4444', fontWeight: 600, letterSpacing: 0.4,
-      }}>
-        <span>●</span>
-        <span>Phase 2 figures, valuations, yields and cashflows are projected / dummy data — acquisition costs (Phase 1) are real</span>
-      </div>
-
       {/* Header + Dropdown */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
         <h2 style={{ fontWeight: 'bold', fontSize: 24, color: '#cc6600', margin: 0 }}>
@@ -241,40 +329,62 @@ export default function PropertySelector() {
 
       {/* KPI Cards */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <KpiCard
-          label="ROI on Cash"
-          value={fmtPct(roi)}
-          sub={`£${fmt(netCashInvested)} net invested`}
-          color={roiColor}
-          dummy
-        />
-        <KpiCard
-          label="Equity"
-          value={`£${fmt(equity)}`}
-          sub={`£${fmt(property.market_value_est)} est. value`}
-          color="#60a5fa"
-          dummy
-        />
-        <KpiCard
-          label="Gross Yield"
-          value={fmtPct(grossYield)}
-          sub={`Net yield ${fmtPct(netYield)}`}
-          color="#a78bfa"
-          dummy
-        />
-        <KpiCard
-          label="Monthly Cashflow"
-          value={`£${fmt(monthlyCashflow)}`}
-          sub={`£${fmt(annualCashflow)} / year`}
-          color={cashflowColor}
-          dummy
-        />
+        <KpiCard label="ROI on Cash" value={fmtPct(roi)} sub={`£${fmt(netCashInvested)} net invested`} color={roiColor} />
+        <KpiCard label="Equity" value={`£${fmt(equity)}`} sub={`£${fmt(property.market_value_est)} market value`} color="#60a5fa" />
+        <KpiCard label="Gross Yield" value={fmtPct(grossYield)} sub={`Net yield ${fmtPct(netYield)}`} color="#a78bfa" />
+        <KpiCard label="Monthly Cashflow" value={`£${fmt(monthlyCashflow)}`} sub={`£${fmt(annualCashflow)} / year`} color={cashflowColor} />
+      </div>
+
+      {/* Asset Appreciation Chart */}
+      <div style={{ background: '#111', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16 }}>
+          <h3 style={{ fontWeight: 'bold', fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1, margin: 0 }}>
+            Asset Appreciation
+          </h3>
+          <span style={{ fontSize: 12, color: '#555' }}>{property.address}, {property.city}</span>
+        </div>
+
+        {/* Milestone summary */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          {chartPoints.map((p, i) => (
+            <div key={i} style={{
+              background: '#1a1a1a', borderRadius: 8, padding: '10px 16px',
+              borderLeft: `3px solid ${i === 0 ? '#60a5fa' : i === chartPoints.length - 1 ? '#4ade80' : '#cc6600'}`,
+            }}>
+              <div style={{ fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>
+                {p.label}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 'bold', color: '#fff' }}>£{fmt(p.value)}</div>
+              <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{fmtMonthYear(p.date)}</div>
+            </div>
+          ))}
+          {chartPoints.length >= 2 && (
+            <div style={{
+              background: '#1a1a1a', borderRadius: 8, padding: '10px 16px',
+              borderLeft: '3px solid #f59e0b',
+            }}>
+              <div style={{ fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>
+                Total Appreciation
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 'bold', color: '#f59e0b' }}>
+                +£{fmt(chartPoints[chartPoints.length - 1].value - chartPoints[0].value)}
+              </div>
+              <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>
+                +{(((chartPoints[chartPoints.length - 1].value - chartPoints[0].value) / chartPoints[0].value) * 100).toFixed(1)}% from purchase
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ height: 220 }}>
+          <Line data={chartData} options={chartOptions as any} />
+        </div>
       </div>
 
       {/* Details grid */}
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
 
-        {/* Property & Investment */}
+        {/* Investment Summary */}
         <div style={{ background: '#111', borderRadius: 12, padding: 20, flex: 1, minWidth: 260 }}>
           <h3 style={{ fontWeight: 'bold', marginBottom: 12, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
             Investment Summary
@@ -287,8 +397,8 @@ export default function PropertySelector() {
           <StatRow label="Renovation cost" value={`£${fmt(property.renovation_cost)}`} />
           <StatRow label="Renovation mgmt fee" value={`£${fmt(property.renovation_mgmt_fee)}`} />
           <StatRow label="Total cash deployed" value={`£${fmt(totalCashInvested)}`} />
-          <StatRow label="Equity released" value={`£${fmt(property.equity_release)}`} dummy />
-          <StatRow label="Net cash in deal" value={`£${fmt(netCashInvested)}`} dummy />
+          <StatRow label="Equity released" value={`£${fmt(property.equity_release)}`} />
+          <StatRow label="Net cash in deal" value={`£${fmt(netCashInvested)}`} />
         </div>
 
         {/* Income & Costs */}
@@ -296,32 +406,31 @@ export default function PropertySelector() {
           <h3 style={{ fontWeight: 'bold', marginBottom: 12, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
             Income & Running Costs (Phase 2)
           </h3>
-          <StatRow label="Beds" value={String(property.beds_phase2)} dummy />
-          <StatRow label="Annual rent" value={`£${fmt(property.annual_rent_phase2)}`} dummy />
-          <StatRow label="Management" value={`-£${fmt(property.management_phase2)}`} dummy />
-          <StatRow label="Maintenance provision" value={`-£${fmt(property.provision_costs_phase2)}`} dummy />
-          <StatRow label="Void provision" value={`-£${fmt(property.provision_voids_phase2)}`} dummy />
-          {property.bills_phase2 > 0 && <StatRow label="Bills" value={`-£${fmt(property.bills_phase2)}`} dummy />}
-          <StatRow label="Mortgage interest (p.a.)" value={`-£${fmt(annualMortgageInterest)}`} dummy />
-          <StatRow label="Mortgage rate" value={`${(property.mortgage_rate_phase2 * 100).toFixed(1)}%`} dummy />
-          <StatRow label="Annual cashflow" value={`£${fmt(annualCashflow)}`} dummy />
-          <StatRow label="Monthly cashflow" value={`£${fmt(monthlyCashflow)}`} dummy />
+          <StatRow label="Beds" value={String(property.beds_phase2)} />
+          <StatRow label="Annual rent" value={`£${fmt(property.annual_rent_phase2)}`} />
+          <StatRow label="Management" value={`-£${fmt(property.management_phase2)}`} />
+          <StatRow label="Maintenance provision" value={`-£${fmt(property.provision_costs_phase2)}`} />
+          <StatRow label="Void provision" value={`-£${fmt(property.provision_voids_phase2)}`} />
+          {property.bills_phase2 > 0 && <StatRow label="Bills" value={`-£${fmt(property.bills_phase2)}`} />}
+          <StatRow label="Mortgage interest (p.a.)" value={`-£${fmt(annualMortgageInterest)}`} />
+          <StatRow label="Mortgage rate" value={`${(property.mortgage_rate_phase2 * 100).toFixed(1)}%`} />
+          <StatRow label="Annual cashflow" value={`£${fmt(annualCashflow)}`} />
+          <StatRow label="Monthly cashflow" value={`£${fmt(monthlyCashflow)}`} />
         </div>
 
-        {/* Valuation */}
+        {/* Valuation & Equity */}
         <div style={{ background: '#111', borderRadius: 12, padding: 20, flex: 1, minWidth: 260 }}>
           <h3 style={{ fontWeight: 'bold', marginBottom: 12, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
             Valuation & Equity
           </h3>
-          <StatRow label="Revaluation (Phase 2)" value={`£${fmt(property.revaluation_estimate)}`} dummy />
-          <StatRow label="Market value est." value={`£${fmt(property.market_value_est)}`} dummy />
-          <StatRow label="Basis" value={property.market_value_basis} dummy />
-          <StatRow label="LTV (Phase 2)" value={`${((1 - property.deposit_pct_phase2) * 100).toFixed(0)}%`} dummy />
-          <StatRow label="Outstanding mortgage" value={`£${fmt(outstandingMortgage)}`} dummy />
-          <StatRow label="Equity (vs market value)" value={`£${fmt(equity)}`} dummy />
+          <StatRow label="Base Case Revaluation" value={`£${fmt(property.revaluation_estimate)}`} />
+          <StatRow label="Market Value Estimate" value={`£${fmt(property.market_value_est)}`} />
+          <StatRow label="Basis" value={property.market_value_basis} />
+          <StatRow label="LTV (Phase 2)" value={`${((1 - property.deposit_pct_phase2) * 100).toFixed(0)}%`} />
+          <StatRow label="Outstanding mortgage" value={`£${fmt(outstandingMortgage)}`} />
+          <StatRow label="Equity (vs market value)" value={`£${fmt(equity)}`} />
           {property.notes_phase2 && <StatRow label="Notes" value={property.notes_phase2} />}
 
-          {/* Capital transactions mini-list */}
           {propTxns.length > 0 && (
             <>
               <h3 style={{ fontWeight: 'bold', marginTop: 20, marginBottom: 10, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -343,13 +452,13 @@ export default function PropertySelector() {
       {propScenarios.length > 0 && (
         <div style={{ background: '#111', borderRadius: 12, padding: 20, marginTop: 20 }}>
           <h3 style={{ fontWeight: 'bold', marginBottom: 14, fontSize: 14, color: '#cc6600', textTransform: 'uppercase', letterSpacing: 1 }}>
-            Scenarios <DummyTag />
+            Scenarios
           </h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #333' }}>
-                  {['Scenario', 'Revaluation', 'Equity Release', 'Mortgage Rate', 'Annual Rent', 'Cashflow/mo', 'ROI'].map(h => (
+                  {['Scenario', 'Base Case Revaluation', 'Equity Release', 'Mortgage Rate', 'Annual Rent', 'Cashflow/mo', 'ROI'].map(h => (
                     <th key={h} align={h === 'Scenario' ? 'left' : 'right'}
                       style={{ padding: '6px 10px', color: '#888', fontWeight: 600 }}>
                       {h}
@@ -372,10 +481,10 @@ export default function PropertySelector() {
                       <td align="right" style={{ padding: '8px 10px' }}>{(s.mortgage_rate_phase2 * 100).toFixed(1)}%</td>
                       <td align="right" style={{ padding: '8px 10px' }}>£{fmt(s.annual_rent_phase2)}</td>
                       <td align="right" style={{ padding: '8px 10px', color: sCashflow >= 0 ? '#4ade80' : '#ef4444' }}>
-                        £{fmt(sCashflow / 12)}<DummyTag />
+                        £{fmt(sCashflow / 12)}
                       </td>
                       <td align="right" style={{ padding: '8px 10px', color: sRoi >= 10 ? '#4ade80' : sRoi >= 0 ? '#f59e0b' : '#ef4444' }}>
-                        {fmtPct(sRoi)}<DummyTag />
+                        {fmtPct(sRoi)}
                       </td>
                     </tr>
                   )
