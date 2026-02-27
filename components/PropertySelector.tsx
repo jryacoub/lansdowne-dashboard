@@ -403,6 +403,133 @@ export default function PropertySelector({
     )
   }
 
+  // ─── Portfolio aggregate view (when "All Properties" selected) ───────────────
+  const showAll = hasParent && (!externalId || externalId === '')
+
+  if (showAll && properties.length > 0) {
+    const rows = properties.map(p => {
+      const netCash = p.cash_deposit_phase1 + p.stamp_duty + p.solicitor_fees +
+        p.agent_fee + p.renovation_cost + p.renovation_mgmt_fee - p.equity_release
+      const mortgage = p.revaluation_estimate * (1 - p.deposit_pct_phase2)
+      const opCosts = p.management_phase2 + p.provision_costs_phase2 +
+        p.provision_voids_phase2 + (p.bills_phase2 || 0)
+      const cashflow = p.annual_rent_phase2 - opCosts - (mortgage * p.mortgage_rate_phase2)
+      const eq = p.market_value_est - mortgage
+      const roi = netCash > 0 ? (cashflow / netCash) * 100 : 0
+      const grossYield = (p.annual_rent_phase2 / p.market_value_est) * 100
+      return { p, netCash, cashflow, eq, roi, grossYield }
+    })
+
+    const totEquity    = rows.reduce((s, r) => s + r.eq, 0)
+    const totCashflow  = rows.reduce((s, r) => s + r.cashflow, 0)
+    const totNetCash   = rows.reduce((s, r) => s + r.netCash, 0)
+    const totMV        = properties.reduce((s, p) => s + p.market_value_est, 0)
+    const totRent      = properties.reduce((s, p) => s + p.annual_rent_phase2, 0)
+    const portROI      = totNetCash > 0 ? (totCashflow / totNetCash) * 100 : 0
+    const portYield    = (totRent / totMV) * 100
+    const cfColor      = totCashflow >= 0 ? GREEN : RED
+    const roiColor     = portROI >= 10 ? GREEN : portROI >= 0 ? AMBER : RED
+
+    return (
+      <div style={{ fontFamily: FONT, color: TEXT }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+          <div style={{ width: 3, height: 16, background: GOLD, borderRadius: 2 }} />
+          <span style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '3px', fontWeight: 600 }}>
+            Property Analysis
+          </span>
+          <span style={{ fontSize: 11, color: TEXT3, marginLeft: 8 }}>Portfolio · {properties.length} properties</span>
+        </div>
+
+        {/* Aggregate KPI cards */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          <KpiCard label="Total Equity" value={`£${fmt(totEquity)}`} sub={`${((totEquity / totMV) * 100).toFixed(0)}% of £${fmt(totMV)} portfolio value`} color={BLUE} />
+          <KpiCard label="Portfolio ROI" value={fmtPct(portROI)} sub={`£${fmt(totNetCash)} net deployed`} color={roiColor} />
+          <KpiCard label="Gross Yield" value={fmtPct(portYield)} sub={`£${fmt(totRent)} annual rent`} color="#a78bfa" />
+          <KpiCard label="Annual Cashflow" value={`£${fmt(totCashflow)}`} sub={`£${fmt(Math.round(totCashflow / 12))} / month`} color={cfColor} />
+        </div>
+
+        {/* Per-property table */}
+        <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 18px', borderBottom: `1px solid ${BORDER2}` }}>
+            <span style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}>
+              Portfolio Breakdown
+            </span>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: SURFACE2 }}>
+                {['Property', 'Market Value', 'Equity', 'Net Cash In', 'Ann. Cashflow', 'ROI', 'Gross Yield'].map(h => (
+                  <th key={h} align={h === 'Property' ? 'left' : 'right'} style={{
+                    padding: '8px 14px', fontSize: 10, color: TEXT3, textTransform: 'uppercase',
+                    letterSpacing: '1px', fontWeight: 600, borderBottom: `1px solid ${BORDER2}`,
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ p, netCash, cashflow, eq, roi, grossYield }, i) => {
+                const rowCfColor = cashflow >= 0 ? GREEN : RED
+                const rowRoiColor = roi >= 10 ? GREEN : roi >= 0 ? AMBER : RED
+                return (
+                  <tr key={p.property_id} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.012)', cursor: 'pointer' }}
+                    onClick={() => onSelectId?.(p.property_id)}>
+                    <td style={{ padding: '8px 14px', fontSize: 12, color: TEXT2, borderBottom: `1px solid ${BORDER}` }}>
+                      {p.address.split(',')[0]}
+                    </td>
+                    <td align="right" style={{ padding: '8px 14px', fontSize: 12, color: TEXT, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
+                      £{fmt(p.market_value_est)}
+                    </td>
+                    <td align="right" style={{ padding: '8px 14px', fontSize: 12, color: BLUE, fontWeight: 600, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
+                      £{fmt(eq)}
+                    </td>
+                    <td align="right" style={{ padding: '8px 14px', fontSize: 12, color: TEXT2, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
+                      £{fmt(netCash)}
+                    </td>
+                    <td align="right" style={{ padding: '8px 14px', fontSize: 12, color: rowCfColor, fontWeight: 600, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
+                      £{fmt(cashflow)}
+                    </td>
+                    <td align="right" style={{ padding: '8px 14px', fontSize: 12, color: rowRoiColor, fontWeight: 600, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
+                      {fmtPct(roi)}
+                    </td>
+                    <td align="right" style={{ padding: '8px 14px', fontSize: 12, color: '#a78bfa', fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
+                      {fmtPct(grossYield)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: SURFACE2 }}>
+                <td style={{ padding: '10px 14px', fontSize: 11, color: TEXT3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', borderTop: `1px solid ${BORDER2}` }}>
+                  Portfolio Total
+                </td>
+                <td align="right" style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: TEXT, fontVariantNumeric: 'tabular-nums', borderTop: `1px solid ${BORDER2}` }}>
+                  £{fmt(totMV)}
+                </td>
+                <td align="right" style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: BLUE, fontVariantNumeric: 'tabular-nums', borderTop: `1px solid ${BORDER2}` }}>
+                  £{fmt(totEquity)}
+                </td>
+                <td align="right" style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: TEXT, fontVariantNumeric: 'tabular-nums', borderTop: `1px solid ${BORDER2}` }}>
+                  £{fmt(totNetCash)}
+                </td>
+                <td align="right" style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: cfColor, fontVariantNumeric: 'tabular-nums', borderTop: `1px solid ${BORDER2}` }}>
+                  £{fmt(totCashflow)}
+                </td>
+                <td align="right" style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: roiColor, fontVariantNumeric: 'tabular-nums', borderTop: `1px solid ${BORDER2}` }}>
+                  {fmtPct(portROI)}
+                </td>
+                <td align="right" style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#a78bfa', fontVariantNumeric: 'tabular-nums', borderTop: `1px solid ${BORDER2}` }}>
+                  {fmtPct(portYield)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   const property = properties.find(p => p.property_id === selectedId)
   if (!property) return null
 
