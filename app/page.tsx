@@ -124,6 +124,8 @@ function ColHeader({
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Home() {
   const [data, setData] = useState<any[]>([])
+  const [allProperties, setAllProperties] = useState<{ property_id: string; address: string; city: string }[]>([])
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
   const [filters, setFilters] = useState<{ [key: string]: string[] }>({})
@@ -132,8 +134,12 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data, error } = await supabase.from('transactions').select('*')
-      if (!error && data) setData(data)
+      const [{ data: txns }, { data: props }] = await Promise.all([
+        supabase.from('transactions').select('*'),
+        supabase.from('properties_master').select('property_id, address, city').order('property_id'),
+      ])
+      if (txns) setData(txns)
+      if (props) setAllProperties(props)
       setLoading(false)
     }
     fetchData()
@@ -146,19 +152,38 @@ export default function Home() {
     </div>
   )
 
-  // ─── Calculations ──────────────────────────────────────────────────────────
-  const totalIncome = data
+  // ─── Filtering & Sorting ───────────────────────────────────────────────────
+  // Apply property + date filters first — affects everything including KPI cards
+  let filteredData = [...data]
+  if (selectedPropertyId) {
+    const selProp = allProperties.find(p => p.property_id === selectedPropertyId)
+    if (selProp) {
+      const addrKey = selProp.address.split(',')[0].trim().toLowerCase()
+      filteredData = filteredData.filter(row =>
+        String(row['Property address'] || '').toLowerCase().includes(addrKey)
+      )
+    }
+  }
+  if (startDate) filteredData = filteredData.filter(row => row['Item date'] >= startDate)
+  if (endDate) filteredData = filteredData.filter(row => row['Item date'] <= endDate)
+  Object.entries(filters).forEach(([key, selected]) => {
+    if (selected && selected.length > 0)
+      filteredData = filteredData.filter(row => selected.includes(String(row[key])))
+  })
+
+  // ─── Calculations (on filtered data) ──────────────────────────────────────
+  const totalIncome = filteredData
     .filter(row => row['Item type'] === 'Rent Paid')
     .reduce((sum, row) => sum + Number(row['Item amount inc VAT']), 0)
 
-  const totalExpenses = data
+  const totalExpenses = filteredData
     .filter(row => row['Item type'] !== 'Rent Paid')
     .reduce((sum, row) => sum + Number(row['Item amount inc VAT']), 0)
 
   const net = totalIncome + totalExpenses
   const netMarginPct = totalIncome > 0 ? (net / totalIncome) * 100 : 0
 
-  const totalsByType = data.reduce((acc: any, row: any) => {
+  const totalsByType = filteredData.reduce((acc: any, row: any) => {
     const type = row['Item type']
     const amount = Number(row['Item amount inc VAT']) || 0
     if (!acc[type]) acc[type] = 0
@@ -169,15 +194,6 @@ export default function Home() {
   const breakdownRows = Object.entries(totalsByType)
     .map(([type, total]: any) => ({ type, total }))
     .sort((a, b) => b.total - a.total)
-
-  // ─── Filtering & Sorting ───────────────────────────────────────────────────
-  let filteredData = [...data]
-  if (startDate) filteredData = filteredData.filter(row => row['Item date'] >= startDate)
-  if (endDate) filteredData = filteredData.filter(row => row['Item date'] <= endDate)
-  Object.entries(filters).forEach(([key, selected]) => {
-    if (selected && selected.length > 0)
-      filteredData = filteredData.filter(row => selected.includes(String(row[key])))
-  })
 
   let sortedData = [...filteredData]
   if (sortConfig) {
@@ -250,8 +266,72 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ── UNIFIED FILTER BAR ──────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', gap: 16, alignItems: 'center', marginBottom: 36,
+        padding: '12px 18px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4,
+        flexWrap: 'wrap',
+      }}>
+        <span style={{ fontSize: 10, color: TEXT3, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 600 }}>
+          Filters
+        </span>
+        {/* Property selector */}
+        <select
+          value={selectedPropertyId}
+          onChange={e => setSelectedPropertyId(e.target.value)}
+          style={{
+            background: SURFACE2, color: selectedPropertyId ? TEXT : TEXT2,
+            border: `1px solid ${selectedPropertyId ? GOLD : BORDER2}`,
+            borderRadius: 3, padding: '6px 32px 6px 12px', fontSize: 12,
+            fontFamily: FONT, cursor: 'pointer', minWidth: 260, appearance: 'none',
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a5570'/%3E%3C/svg%3E")`,
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', outline: 'none',
+          }}
+        >
+          <option value="">All Properties</option>
+          {allProperties.map(p => (
+            <option key={p.property_id} value={p.property_id}>{p.address}, {p.city}</option>
+          ))}
+        </select>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 20, background: BORDER2, margin: '0 4px' }} />
+
+        {/* Date range */}
+        <span style={{ fontSize: 12, color: TEXT3 }}>From</span>
+        <input
+          type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+          style={inputStyle}
+        />
+        <span style={{ fontSize: 12, color: TEXT3 }}>To</span>
+        <input
+          type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+          style={inputStyle}
+        />
+
+        {/* Clear */}
+        {(selectedPropertyId || startDate || endDate) && (
+          <button
+            onClick={() => { setSelectedPropertyId(''); setStartDate(''); setEndDate('') }}
+            style={{
+              background: 'none', border: `1px solid ${BORDER2}`, color: TEXT3,
+              borderRadius: 3, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontFamily: FONT,
+            }}
+          >
+            Clear all
+          </button>
+        )}
+
+        <div style={{ marginLeft: 'auto', fontSize: 11, color: TEXT3 }}>
+          {filteredData.length} transactions
+        </div>
+      </div>
+
       {/* ── PROPERTY ANALYSIS ───────────────────────────────────────────── */}
-      <PropertySelector />
+      <PropertySelector
+        selectedId={selectedPropertyId}
+        onSelectId={setSelectedPropertyId}
+      />
 
       {/* ── SECTION DIVIDER ─────────────────────────────────────────────── */}
       <div style={{ margin: '52px 0 36px', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -313,40 +393,6 @@ export default function Home() {
               {netMarginPct.toFixed(1)}%
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* ── DATE FILTERS ────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', gap: 12, alignItems: 'center', marginBottom: 28,
-        padding: '12px 16px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4,
-      }}>
-        <span style={{ fontSize: 10, color: TEXT3, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 600, marginRight: 4 }}>
-          Filter
-        </span>
-        <span style={{ fontSize: 12, color: TEXT3 }}>From</span>
-        <input
-          type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-          style={inputStyle}
-        />
-        <span style={{ fontSize: 12, color: TEXT3 }}>To</span>
-        <input
-          type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-          style={inputStyle}
-        />
-        {(startDate || endDate) && (
-          <button
-            onClick={() => { setStartDate(''); setEndDate('') }}
-            style={{
-              background: 'none', border: `1px solid ${BORDER2}`, color: TEXT3,
-              borderRadius: 3, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontFamily: FONT,
-            }}
-          >
-            Clear
-          </button>
-        )}
-        <div style={{ marginLeft: 'auto', fontSize: 11, color: TEXT3 }}>
-          {sortedData.length} transactions
         </div>
       </div>
 

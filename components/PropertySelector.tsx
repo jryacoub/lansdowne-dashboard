@@ -340,14 +340,27 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function PropertySelector() {
+export default function PropertySelector({
+  selectedId: externalId,
+  onSelectId,
+}: {
+  selectedId?: string
+  onSelectId?: (id: string) => void
+} = {}) {
   const [properties, setProperties] = useState<Property[]>([])
   const [capitalTransactions, setCapitalTransactions] = useState<CapitalTransaction[]>([])
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [valuations, setValuations] = useState<Valuation[]>([])
   const [opTransactions, setOpTransactions] = useState<any[]>([])   // operational P&L ledger
-  const [selectedId, setSelectedId] = useState<string>('')
+  const [internalId, setInternalId] = useState<string>('')
   const [loading, setLoading] = useState(true)
+
+  const isControlled = externalId !== undefined && externalId !== ''
+  const selectedId = isControlled ? externalId : internalId
+  const setSelectedId = (id: string) => {
+    setInternalId(id)
+    onSelectId?.(id)
+  }
 
   useEffect(() => {
     async function fetchAll() {
@@ -364,7 +377,13 @@ export default function PropertySelector() {
         supabase.from('valuations').select('*').in('address', TARGET_ADDRESSES).order('date'),
         supabase.from('transactions').select('*'),
       ])
-      if (props && props.length > 0) { setProperties(props); setSelectedId(props[0].property_id) }
+      if (props && props.length > 0) {
+        setProperties(props)
+        const firstId = props[0].property_id
+        setInternalId(firstId)
+        // Notify parent of the initial selection so the filter bar can sync
+        if (!externalId) onSelectId?.(firstId)
+      }
       if (txns) setCapitalTransactions(txns)
       if (scens) setScenarios(scens)
       if (vals) setValuations(vals)
@@ -675,7 +694,7 @@ export default function PropertySelector() {
   return (
     <div style={{ fontFamily: FONT, color: TEXT }}>
 
-      {/* ── PROPERTY SELECTOR HEADER ─────────────────────────────────── */}
+      {/* ── PROPERTY ANALYSIS HEADER ─────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -684,21 +703,24 @@ export default function PropertySelector() {
               Property Analysis
             </span>
           </div>
-          <select
-            value={selectedId}
-            onChange={e => setSelectedId(e.target.value)}
-            style={{
-              background: SURFACE, color: TEXT, border: `1px solid ${BORDER2}`,
-              borderRadius: 3, padding: '7px 32px 7px 12px', fontSize: 13,
-              fontFamily: FONT, cursor: 'pointer', minWidth: 280, appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a5570'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', outline: 'none', letterSpacing: '0.2px',
-            }}
-          >
-            {properties.map(p => (
-              <option key={p.property_id} value={p.property_id}>{p.address}, {p.city}</option>
-            ))}
-          </select>
+          {/* Internal picker: only shown when not externally controlled */}
+          {!isControlled && (
+            <select
+              value={selectedId}
+              onChange={e => setSelectedId(e.target.value)}
+              style={{
+                background: SURFACE, color: TEXT, border: `1px solid ${BORDER2}`,
+                borderRadius: 3, padding: '7px 32px 7px 12px', fontSize: 13,
+                fontFamily: FONT, cursor: 'pointer', minWidth: 280, appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a5570'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', outline: 'none', letterSpacing: '0.2px',
+              }}
+            >
+              {properties.map(p => (
+                <option key={p.property_id} value={p.property_id}>{p.address}, {p.city}</option>
+              ))}
+            </select>
+          )}
           {property.property_link && (
             <a href={property.property_link} target="_blank" rel="noopener noreferrer"
               style={{ fontSize: 11, color: GOLD, textDecoration: 'none', border: `1px solid rgba(201,168,66,0.3)`, borderRadius: 3, padding: '4px 10px', letterSpacing: '0.5px' }}>
