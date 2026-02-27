@@ -224,8 +224,13 @@ function DealRow({
         </span>
         {/* Actual + indicator column */}
         <div style={{ minWidth: 110, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: hasActual ? (highlight ? 700 : 600) : 400, color: hasActual ? TEXT : TEXT3, fontVariantNumeric: 'tabular-nums' }}>
-            {hasActual ? `£${fmt(actual!)}` : (!noteIndex ? '—' : '')}
+          <span style={{
+            fontSize: 12, fontVariantNumeric: 'tabular-nums',
+            fontWeight: hasActual ? (highlight ? 700 : 600) : 400,
+            color: hasActual ? TEXT : TEXT3,
+            fontStyle: !hasActual && noteIndex ? 'italic' : 'normal',
+          }}>
+            {hasActual ? `£${fmt(actual!)}` : (noteIndex ? `£${fmt(projected)}` : '—')}
           </span>
           {!hasActual && noteIndex && (
             <span style={{ fontSize: 9, color: AMBER, fontWeight: 700, background: 'rgba(245,158,11,0.1)', borderRadius: 2, padding: '1px 5px' }}>
@@ -284,8 +289,13 @@ function IncomeRow({
       </span>
       {/* Actual + indicator column */}
       <div style={{ minWidth: 110, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
-        <span style={{ fontSize: 12, fontWeight: hasActual ? (highlight ? 700 : 600) : 400, color: hasActual ? TEXT : TEXT3, fontVariantNumeric: 'tabular-nums' }}>
-          {hasActual ? `£${fmt(actual!)}` : (!noteIndex ? '—' : '')}
+        <span style={{
+          fontSize: 12, fontVariantNumeric: 'tabular-nums',
+          fontWeight: hasActual ? (highlight ? 700 : 600) : 400,
+          color: hasActual ? TEXT : TEXT3,
+          fontStyle: !hasActual && noteIndex ? 'italic' : 'normal',
+        }}>
+          {hasActual ? `£${fmt(actual!)}` : (noteIndex ? `£${fmt(projected)}` : '—')}
         </span>
         {!hasActual && noteIndex && (
           <span style={{ fontSize: 9, color: AMBER, fontWeight: 700, background: 'rgba(245,158,11,0.1)', borderRadius: 2, padding: '1px 5px' }}>
@@ -964,7 +974,7 @@ export default function PropertySelector({
             lowerIsBetter
           />
           {[actualPurchasePrice, actualStampDuty, actualSolicitorFees, actualAgentFee, actualRenovCost, actualRenovMgmt, actualEquityReleased, actualTotalDeployed, actualNetCashInDeal].some(a => a === null) && (
-            <NotesKey notes={[{ index: 1, text: 'No matching entry found in capital transactions — record not yet added' }]} />
+            <NotesKey notes={[{ index: 1, text: 'Budgeted figure shown — no matching entry recorded in capital transactions' }]} />
           )}
         </div>
 
@@ -1005,9 +1015,9 @@ export default function PropertySelector({
             />
           )}
           <NotesKey notes={[
-            ...((!actualRentAnn || !actualMgmtAnn || !actualBillsAnn) ? [{ index: 1, text: 'No transactions found in the P&L ledger for this property/category' }] : []),
-            { index: 2, text: 'Provision estimate only — not tracked as a direct cash cost in the ledger' },
-            { index: 3, text: 'Calculated from mortgage rate × outstanding balance; not a direct cash transaction' },
+            ...((!actualRentAnn || !actualMgmtAnn || !actualBillsAnn) ? [{ index: 1, text: 'Projected figure shown — no transactions found in the P&L ledger for this category' }] : []),
+            { index: 2, text: 'Projected figure shown — provision estimate only, not tracked as a direct cash cost' },
+            { index: 3, text: 'Projected figure shown — derived from mortgage rate × outstanding balance' },
           ]} />
         </div>
 
