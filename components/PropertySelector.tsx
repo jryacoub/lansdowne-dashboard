@@ -381,10 +381,7 @@ export default function PropertySelector({
       ])
       if (props && props.length > 0) {
         setProperties(props)
-        const firstId = props[0].property_id
-        setInternalId(firstId)
-        // Notify parent of the initial selection so the filter bar can sync
-        if (!externalId) onSelectId?.(firstId)
+        setInternalId(props[0].property_id)
       }
       if (txns) setCapitalTransactions(txns)
       if (scens) setScenarios(scens)
