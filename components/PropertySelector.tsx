@@ -355,8 +355,10 @@ export default function PropertySelector({
   const [internalId, setInternalId] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
-  const isControlled = externalId !== undefined && externalId !== ''
-  const selectedId = isControlled ? externalId : internalId
+  // Hide internal picker whenever a parent is managing selection (onSelectId provided)
+  const hasParent = onSelectId !== undefined
+  // Use the external id when non-empty; fall back to internal (first property on load)
+  const selectedId = (externalId && externalId !== '') ? externalId : internalId
   const setSelectedId = (id: string) => {
     setInternalId(id)
     onSelectId?.(id)
@@ -703,8 +705,8 @@ export default function PropertySelector({
               Property Analysis
             </span>
           </div>
-          {/* Internal picker: only shown when not externally controlled */}
-          {!isControlled && (
+          {/* Internal picker: only shown when no parent is managing selection */}
+          {!hasParent && (
             <select
               value={selectedId}
               onChange={e => setSelectedId(e.target.value)}
