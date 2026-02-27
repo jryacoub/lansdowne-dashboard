@@ -167,14 +167,35 @@ function StatRow({ label, value, highlight }: { label: string; value: string; hi
   )
 }
 
+// ─── Notes key ────────────────────────────────────────────────────────────────
+function NotesKey({ notes }: { notes: { index: number; text: string }[] }) {
+  if (!notes.length) return null
+  return (
+    <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
+      {notes.map(n => (
+        <div key={n.index} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', marginBottom: 4 }}>
+          <span style={{
+            fontSize: 9, color: AMBER, fontWeight: 700, lineHeight: '14px',
+            background: 'rgba(245,158,11,0.1)', borderRadius: 2,
+            padding: '0 4px', minWidth: 14, textAlign: 'center', flexShrink: 0,
+          }}>
+            {n.index}
+          </span>
+          <span style={{ fontSize: 10, color: TEXT3, fontStyle: 'italic', lineHeight: 1.5 }}>{n.text}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Deal Row: budget vs actual from capital_transactions ─────────────────────
 //    lowerIsBetter=true  → costs: under budget is ✓ green
 //    lowerIsBetter=false → equity release: higher actual is ✓ green
 function DealRow({
-  label, projected, actual, lowerIsBetter = true, highlight = false,
+  label, projected, actual, lowerIsBetter = true, highlight = false, noteIndex,
 }: {
   label: string; projected: number; actual: number | null
-  lowerIsBetter?: boolean; highlight?: boolean
+  lowerIsBetter?: boolean; highlight?: boolean; noteIndex?: number
 }) {
   const hasActual = actual !== null
   let indicator = '', indicatorColor = TEXT3, varianceText = ''
@@ -204,8 +225,13 @@ function DealRow({
         {/* Actual + indicator column */}
         <div style={{ minWidth: 110, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: hasActual ? (highlight ? 700 : 600) : 400, color: hasActual ? TEXT : TEXT3, fontVariantNumeric: 'tabular-nums' }}>
-            {hasActual ? `£${fmt(actual!)}` : '—'}
+            {hasActual ? `£${fmt(actual!)}` : (!noteIndex ? '—' : '')}
           </span>
+          {!hasActual && noteIndex && (
+            <span style={{ fontSize: 9, color: AMBER, fontWeight: 700, background: 'rgba(245,158,11,0.1)', borderRadius: 2, padding: '1px 5px' }}>
+              {noteIndex}
+            </span>
+          )}
           {hasActual && indicator && (
             <span style={{ fontSize: 12, fontWeight: 700, color: indicatorColor, lineHeight: 1, minWidth: 14 }}>
               {indicator}
@@ -229,10 +255,10 @@ function DealRow({
 //    isIncome=true  → rent: higher actual is ↑ green
 //    isIncome=false → costs: lower actual is ↑ green
 function IncomeRow({
-  label, projected, actual, isIncome = false, highlight = false,
+  label, projected, actual, isIncome = false, highlight = false, noteIndex,
 }: {
   label: string; projected: number; actual: number | null
-  isIncome?: boolean; highlight?: boolean
+  isIncome?: boolean; highlight?: boolean; noteIndex?: number
 }) {
   const hasActual = actual !== null
   let indicator = '', indicatorColor = TEXT3
@@ -259,8 +285,13 @@ function IncomeRow({
       {/* Actual + indicator column */}
       <div style={{ minWidth: 110, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
         <span style={{ fontSize: 12, fontWeight: hasActual ? (highlight ? 700 : 600) : 400, color: hasActual ? TEXT : TEXT3, fontVariantNumeric: 'tabular-nums' }}>
-          {hasActual ? `£${fmt(actual!)}` : '—'}
+          {hasActual ? `£${fmt(actual!)}` : (!noteIndex ? '—' : '')}
         </span>
+        {!hasActual && noteIndex && (
+          <span style={{ fontSize: 9, color: AMBER, fontWeight: 700, background: 'rgba(245,158,11,0.1)', borderRadius: 2, padding: '1px 5px' }}>
+            {noteIndex}
+          </span>
+        )}
         {hasActual && (
           <span style={{ fontSize: 14, fontWeight: 700, color: indicatorColor, lineHeight: 1, minWidth: 12 }}>
             {indicator}
@@ -913,18 +944,18 @@ export default function PropertySelector({
           <SectionHeading>Investment Summary</SectionHeading>
           <PanelColHeaders col2="Budget" col3="Actual" />
 
-          <DealRow label="Purchase price"         projected={property.purchase_price}       actual={actualPurchasePrice} />
+          <DealRow label="Purchase price"         projected={property.purchase_price}       actual={actualPurchasePrice}   noteIndex={1} />
           <StatRow label="Deposit (Phase 1)"      value={`£${fmt(property.cash_deposit_phase1)} (${(property.deposit_pct_phase1 * 100).toFixed(0)}%)`} />
-          <DealRow label="Stamp duty"             projected={property.stamp_duty}           actual={actualStampDuty} />
-          <DealRow label="Solicitor & mtg fees"   projected={property.solicitor_fees}       actual={actualSolicitorFees} />
-          <DealRow label="Agent fee"              projected={property.agent_fee}            actual={actualAgentFee} />
-          <DealRow label="Renovation cost"        projected={property.renovation_cost}      actual={actualRenovCost} />
-          <DealRow label="Renovation mgmt fee"    projected={property.renovation_mgmt_fee}  actual={actualRenovMgmt} />
+          <DealRow label="Stamp duty"             projected={property.stamp_duty}           actual={actualStampDuty}       noteIndex={1} />
+          <DealRow label="Solicitor & mtg fees"   projected={property.solicitor_fees}       actual={actualSolicitorFees}   noteIndex={1} />
+          <DealRow label="Agent fee"              projected={property.agent_fee}            actual={actualAgentFee}        noteIndex={1} />
+          <DealRow label="Renovation cost"        projected={property.renovation_cost}      actual={actualRenovCost}       noteIndex={1} />
+          <DealRow label="Renovation mgmt fee"    projected={property.renovation_mgmt_fee}  actual={actualRenovMgmt}       noteIndex={1} />
 
           <div style={{ height: 1, background: BORDER2, margin: '10px 0 6px' }} />
-          <DealRow label="Total cash deployed"    projected={totalCashInvested}             actual={actualTotalDeployed} highlight />
-          <DealRow label="Equity released"        projected={property.equity_release}       actual={actualEquityReleased} lowerIsBetter={false} />
-          <DealRow label="Net cash in deal"       projected={netCashInvested}               actual={actualNetCashInDeal} highlight />
+          <DealRow label="Total cash deployed"    projected={totalCashInvested}             actual={actualTotalDeployed}   noteIndex={1} highlight />
+          <DealRow label="Equity released"        projected={property.equity_release}       actual={actualEquityReleased}  noteIndex={1} lowerIsBetter={false} />
+          <DealRow label="Net cash in deal"       projected={netCashInvested}               actual={actualNetCashInDeal}   noteIndex={1} highlight />
 
           <ActualsTotalBar
             projectedLabel="Net cash deployed vs budget"
@@ -932,6 +963,9 @@ export default function PropertySelector({
             actual={actualNetCashInDeal}
             lowerIsBetter
           />
+          {[actualPurchasePrice, actualStampDuty, actualSolicitorFees, actualAgentFee, actualRenovCost, actualRenovMgmt, actualEquityReleased, actualTotalDeployed, actualNetCashInDeal].some(a => a === null) && (
+            <NotesKey notes={[{ index: 1, text: 'No matching entry found in capital transactions — record not yet added' }]} />
+          )}
         </div>
 
         {/* ── INCOME & RUNNING COSTS ──────────────────────────────────── */}
@@ -947,15 +981,15 @@ export default function PropertySelector({
           <PanelColHeaders col2="Projected" col3="Actual (ann.)" />
 
           <StatRow label="Beds" value={String(property.beds_phase2)} />
-          <IncomeRow label="Annual rent"                projected={property.annual_rent_phase2}      actual={actualRentAnn}  isIncome />
+          <IncomeRow label="Annual rent"                projected={property.annual_rent_phase2}      actual={actualRentAnn}  isIncome  noteIndex={1} />
           <div style={{ height: 1, background: BORDER2, margin: '8px 0 4px' }} />
-          <IncomeRow label="Management"                 projected={property.management_phase2}       actual={actualMgmtAnn} />
-          <IncomeRow label="Maintenance provision"      projected={property.provision_costs_phase2}  actual={null} />
-          <IncomeRow label="Void provision"             projected={property.provision_voids_phase2}  actual={null} />
+          <IncomeRow label="Management"                 projected={property.management_phase2}       actual={actualMgmtAnn}             noteIndex={1} />
+          <IncomeRow label="Maintenance provision"      projected={property.provision_costs_phase2}  actual={null}                      noteIndex={2} />
+          <IncomeRow label="Void provision"             projected={property.provision_voids_phase2}  actual={null}                      noteIndex={2} />
           {property.bills_phase2 > 0 && (
-            <IncomeRow label="Bills"                    projected={property.bills_phase2}            actual={actualBillsAnn} />
+            <IncomeRow label="Bills"                    projected={property.bills_phase2}            actual={actualBillsAnn}            noteIndex={1} />
           )}
-          <IncomeRow label="Mortgage interest (p.a.)"  projected={annualMortgageInterest}           actual={null} />
+          <IncomeRow label="Mortgage interest (p.a.)"  projected={annualMortgageInterest}           actual={null}                      noteIndex={3} />
           <StatRow   label="Mortgage rate"             value={`${(property.mortgage_rate_phase2 * 100).toFixed(1)}%`} />
           <div style={{ height: 1, background: BORDER2, margin: '8px 0 4px' }} />
           <StatRow label="Annual cashflow"  value={`£${fmt(annualCashflow)}`}   highlight />
@@ -970,6 +1004,11 @@ export default function PropertySelector({
               note={incomePartialNote}
             />
           )}
+          <NotesKey notes={[
+            ...((!actualRentAnn || !actualMgmtAnn || !actualBillsAnn) ? [{ index: 1, text: 'No transactions found in the P&L ledger for this property/category' }] : []),
+            { index: 2, text: 'Provision estimate only — not tracked as a direct cash cost in the ledger' },
+            { index: 3, text: 'Calculated from mortgage rate × outstanding balance; not a direct cash transaction' },
+          ]} />
         </div>
 
         {/* ── VALUATION & EQUITY ─────────────────────────────────────── */}
