@@ -5,6 +5,7 @@ import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { supabase } from '@/lib/supabase'
 import PropertySelector from '@/components/PropertySelector'
+import PasswordGate from '@/components/PasswordGate'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -246,6 +247,7 @@ export default function Home() {
   }
 
   return (
+    <PasswordGate>
     <div style={{ padding: '36px 48px', fontFamily: FONT, background: BG, minHeight: '100vh', color: TEXT }}>
 
       {/* ── PAGE HEADER ─────────────────────────────────────────────────── */}
@@ -625,5 +627,6 @@ export default function Home() {
       </div>
 
     </div>
+    </PasswordGate>
   )
 }
