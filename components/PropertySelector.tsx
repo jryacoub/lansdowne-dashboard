@@ -627,26 +627,31 @@ export default function PropertySelector({
     String(t['Property address'] || '').toLowerCase().includes(addrKey)
   )
 
-  // Date range for annualisation
-  const opDates = propOpTxns
-    .filter(t => t['Item date'])
-    .map(t => new Date(t['Item date'] + 'T00:00:00').getTime())
-  const opFirstMs = opDates.length > 0 ? Math.min(...opDates) : null
-  const opLastMs  = opDates.length > 0 ? Math.max(...opDates) : null
-  // Months of data (minimum 1 to avoid divide-by-zero)
-  const opMonths = opFirstMs && opLastMs
-    ? Math.max(1, (opLastMs - opFirstMs) / (30.44 * 24 * 60 * 60 * 1000) + 1)
-    : 0
+  // Helper: count distinct calendar months (YYYY-MM) for a set of transactions
+  const distinctMonths = (txns: typeof propOpTxns) =>
+    new Set(txns.filter(t => t['Item date']).map(t => String(t['Item date']).slice(0, 7))).size
 
-  // Raw period totals
-  const rawRent  = propOpTxns.filter(t => t['Item type'] === 'Rent Paid').reduce((s, t) => s + Number(t['Item amount inc VAT'] ?? 0), 0)
-  const rawFees  = propOpTxns.filter(t => t['Item type'] === 'Fee').reduce((s, t) => s + Number(t['Item amount inc VAT'] ?? 0), 0)
-  const rawUtils = propOpTxns.filter(t => t['Item type'] === 'Utilities').reduce((s, t) => s + Number(t['Item amount inc VAT'] ?? 0), 0)
+  // Raw period totals per type
+  const rentTxns  = propOpTxns.filter(t => t['Item type'] === 'Rent Paid')
+  const feeTxns   = propOpTxns.filter(t => t['Item type'] === 'Fee')
+  const utilTxns  = propOpTxns.filter(t => t['Item type'] === 'Utilities')
 
-  // Annualised actuals (null if no data exists for this property/type)
-  const actualRentAnn  = opMonths > 0 && rawRent  !== 0 ? (rawRent  / opMonths) * 12        : null
-  const actualMgmtAnn  = opMonths > 0 && rawFees  !== 0 ? (Math.abs(rawFees)  / opMonths) * 12 : null
-  const actualBillsAnn = opMonths > 0 && rawUtils !== 0 ? (Math.abs(rawUtils) / opMonths) * 12 : null
+  const rawRent  = rentTxns.reduce((s, t) => s + Number(t['Item amount inc VAT'] ?? 0), 0)
+  const rawFees  = feeTxns.reduce((s, t) => s + Number(t['Item amount inc VAT'] ?? 0), 0)
+  const rawUtils = utilTxns.reduce((s, t) => s + Number(t['Item amount inc VAT'] ?? 0), 0)
+
+  const rentMonths  = distinctMonths(rentTxns)
+  const feeMonths   = distinctMonths(feeTxns)
+  const utilMonths  = distinctMonths(utilTxns)
+
+  // Annualised actuals — formula: sum ÷ distinct months × 12
+  // null when no data exists for this property/type
+  const actualRentAnn  = rentMonths  > 0 && rawRent  !== 0 ? (rawRent  / rentMonths)           * 12 : null
+  const actualMgmtAnn  = feeMonths   > 0 && rawFees  !== 0 ? (Math.abs(rawFees)  / feeMonths)  * 12 : null
+  const actualBillsAnn = utilMonths  > 0 && rawUtils !== 0 ? (Math.abs(rawUtils) / utilMonths) * 12 : null
+
+  // opMonths: representative month count for the note label (max across types that have data)
+  const opMonths = Math.max(rentMonths, feeMonths, utilMonths)
 
   // Partial actuals total for the income panel summary row
   // Only include categories where we have actuals; use matching projected figures for comparison
@@ -657,8 +662,8 @@ export default function PropertySelector({
   const incomeActualPartial    = incomeActualItems.length > 0 ? incomeActualItems.reduce((s, i) => s + i.a, 0) : null
   const incomeProjectedPartial = incomeActualItems.length > 0 ? incomeActualItems.reduce((s, i) => s + i.p, 0) : null
   const incomePartialNote = opMonths > 1
-    ? `Annualised · ${Math.round(opMonths)} months of data`
-    : opMonths > 0 ? 'Annualised · <1 month of data' : undefined
+    ? `Annualised · ${opMonths} months of data`
+    : opMonths === 1 ? 'Annualised · 1 month of data' : undefined
 
   // ─── Appreciation chart data ───────────────────────────────────────────────
   const propValuations = valuations

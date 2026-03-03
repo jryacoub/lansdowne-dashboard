@@ -139,7 +139,10 @@ export default function Home() {
         supabase.from('properties_master').select('property_id, address, city').order('property_id'),
       ])
       if (txns) setData(txns)
-      if (props) setAllProperties(props)
+      if (props) {
+        setAllProperties(props)
+        if (props.length > 0) setSelectedPropertyId(props[0].property_id)
+      }
       setLoading(false)
     }
     fetchData()
@@ -288,10 +291,10 @@ export default function Home() {
             backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', outline: 'none',
           }}
         >
-          <option value="">All Properties</option>
           {allProperties.map(p => (
             <option key={p.property_id} value={p.property_id}>{p.address}, {p.city}</option>
           ))}
+          <option value="">All Properties</option>
         </select>
 
         {/* Divider */}
