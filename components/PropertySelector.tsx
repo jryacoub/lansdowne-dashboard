@@ -45,6 +45,7 @@ const TARGET_ADDRESSES = [
   '6 Pennington Grove',
   '6 Branksome Terrace',
   '5 Norville Terrace',
+  '103 Cardigan Road',
 ]
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -959,9 +960,9 @@ export default function PropertySelector({
           <SectionHeading>Investment Summary</SectionHeading>
           <PanelColHeaders col2="Budget" col3="Actual" />
 
-          <DealRow label="Purchase price"         projected={property.purchase_price}       actual={actualPurchasePrice}   noteIndex={1} />
-          <StatRow label="Deposit (Phase 1)"      value={`£${fmt(property.cash_deposit_phase1)} (${(property.deposit_pct_phase1 * 100).toFixed(0)}%)`} />
-          <DealRow label="Stamp duty"             projected={property.stamp_duty}           actual={actualStampDuty}       noteIndex={1} />
+          <DealRow label="Purchase price"                        projected={property.purchase_price}       actual={actualPurchasePrice}   noteIndex={1} />
+          <DealRow label={`Deposit Phase 1 (${(property.deposit_pct_phase1 * 100).toFixed(0)}%)`} projected={property.cash_deposit_phase1}  actual={property.cash_deposit_phase1} />
+          <DealRow label="Stamp duty"                        projected={property.stamp_duty}           actual={actualStampDuty}       noteIndex={1} />
           <DealRow label="Solicitor & mtg fees"   projected={property.solicitor_fees}       actual={actualSolicitorFees}   noteIndex={1} />
           <DealRow label="Agent fee"              projected={property.agent_fee}            actual={actualAgentFee}        noteIndex={1} />
           <DealRow label="Renovation cost"        projected={property.renovation_cost}      actual={actualRenovCost}       noteIndex={1} />
