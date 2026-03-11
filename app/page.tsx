@@ -133,6 +133,7 @@ export default function Home() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [starlingTxns, setStarlingTxns] = useState<any[]>([])
+  const [starlingStatusFilter, setStarlingStatusFilter] = useState('All')
 
   useEffect(() => {
     async function fetchData() {
@@ -628,6 +629,38 @@ export default function Home() {
         const dateRange = dates.length > 0
           ? `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}`
           : '—'
+
+        const statusFilterOptions = ['All', 'Mapped', 'MSL', 'Needs Review']
+
+        const statusFilterMap: Record<string, string> = {
+          'Mapped': 'mapped',
+          'MSL': 'mapped_msl',
+          'Needs Review': 'needs_review',
+        }
+
+        const filteredStarling = starlingStatusFilter === 'All'
+          ? starlingTxns
+          : starlingTxns.filter(r => r.categorisation_status === statusFilterMap[starlingStatusFilter])
+
+        function statusBadge(status: string | null) {
+          if (!status) return <span style={{ color: TEXT3 }}>—</span>
+          const styles: Record<string, { color: string; bg: string; label: string }> = {
+            mapped:       { color: GREEN,   bg: 'rgba(34,197,94,0.1)',   label: 'Mapped' },
+            mapped_msl:   { color: BLUE,    bg: 'rgba(74,158,255,0.1)',  label: 'MSL' },
+            needs_review: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', label: 'Needs Review' },
+            pending:      { color: TEXT3,   bg: 'rgba(255,255,255,0.05)', label: 'Pending' },
+          }
+          const s = styles[status] ?? { color: TEXT3, bg: 'rgba(255,255,255,0.05)', label: status }
+          return (
+            <span style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
+              color: s.color, background: s.bg, borderRadius: 3, padding: '2px 6px',
+            }}>
+              {s.label}
+            </span>
+          )
+        }
+
         return (
           <>
             {/* Section divider */}
@@ -675,27 +708,67 @@ export default function Home() {
               ))}
             </div>
 
+            {/* Filter bar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+              padding: '8px 14px', background: SURFACE, border: `1px solid ${BORDER}`,
+              borderRadius: 4,
+            }}>
+              <span style={{ fontSize: 10, color: TEXT3, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 600, marginRight: 4 }}>
+                Status
+              </span>
+              {statusFilterOptions.map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => setStarlingStatusFilter(opt)}
+                  style={{
+                    fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 3,
+                    cursor: 'pointer', fontFamily: FONT, letterSpacing: '0.5px',
+                    border: `1px solid ${starlingStatusFilter === opt ? GOLD : BORDER2}`,
+                    background: starlingStatusFilter === opt ? 'rgba(201,168,66,0.1)' : 'transparent',
+                    color: starlingStatusFilter === opt ? GOLD : TEXT3,
+                  }}
+                >
+                  {opt}
+                </button>
+              ))}
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT3 }}>
+                {filteredStarling.length} records
+              </span>
+            </div>
+
             {/* Transactions table */}
             <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, overflow: 'hidden', marginBottom: 16 }}>
               <div style={{ maxHeight: 480, overflowY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      {['Date', 'Counter Party', 'Reference', 'Type', 'Amount', 'Balance', 'Category'].map((h, i) => (
-                        <th key={h} align={i >= 4 && i <= 5 ? 'right' : 'left'} style={{
+                      {[
+                        { label: 'Date', right: false, pl: true },
+                        { label: 'Counter Party', right: false },
+                        { label: 'Reference', right: false },
+                        { label: 'Type', right: false },
+                        { label: 'Amount', right: true },
+                        { label: 'Balance', right: true },
+                        { label: 'Spending Cat.', right: false },
+                        { label: 'Property', right: false },
+                        { label: 'Category', right: false },
+                        { label: 'Status', right: false },
+                      ].map(({ label, right, pl }) => (
+                        <th key={label} align={right ? 'right' : 'left'} style={{
                           position: 'sticky', top: 0, background: SURFACE2, zIndex: 2,
-                          padding: i === 0 ? '9px 10px 9px 18px' : i === 5 ? '9px 18px 9px 10px' : '9px 10px',
+                          padding: pl ? '9px 10px 9px 18px' : '9px 10px',
                           fontWeight: 600, fontSize: 10, color: TEXT3,
                           textTransform: 'uppercase', letterSpacing: '1.2px',
                           borderBottom: `1px solid ${BORDER2}`,
                         }}>
-                          {h}
+                          {label}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {starlingTxns.map((row, idx) => {
+                    {filteredStarling.map((row, idx) => {
                       const amt = Number(row.amount_gbp)
                       const isIn = amt >= 0
                       return (
@@ -703,10 +776,10 @@ export default function Home() {
                           <td style={{ padding: '7px 10px 7px 18px', fontSize: 12, color: TEXT3, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
                             {row.date ? fmtDate(row.date) : '—'}
                           </td>
-                          <td style={{ padding: '7px 10px', fontSize: 12, color: TEXT2, borderBottom: `1px solid ${BORDER}`, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '7px 10px', fontSize: 12, color: TEXT2, borderBottom: `1px solid ${BORDER}`, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {row.counter_party || '—'}
                           </td>
-                          <td style={{ padding: '7px 10px', fontSize: 12, color: TEXT2, borderBottom: `1px solid ${BORDER}`, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '7px 10px', fontSize: 12, color: TEXT2, borderBottom: `1px solid ${BORDER}`, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {row.reference || '—'}
                           </td>
                           <td style={{ padding: '7px 10px', borderBottom: `1px solid ${BORDER}` }}>
@@ -726,13 +799,22 @@ export default function Home() {
                             {isIn ? '+' : ''}£{Math.abs(amt).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td align="right" style={{
-                            padding: '7px 18px 7px 10px', fontSize: 12, color: TEXT2,
+                            padding: '7px 10px', fontSize: 12, color: TEXT2,
                             fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}`,
                           }}>
                             £{Number(row.balance_gbp).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td style={{ padding: '7px 10px', fontSize: 12, color: row.spending_category ? GOLD : TEXT3, borderBottom: `1px solid ${BORDER}` }}>
-                            {row.spending_category || <span style={{ color: TEXT3, fontStyle: 'italic' }}>Uncategorised</span>}
+                            {row.spending_category || <span style={{ color: TEXT3, fontStyle: 'italic' }}>—</span>}
+                          </td>
+                          <td style={{ padding: '7px 10px', fontSize: 12, color: row.property_address ? TEXT2 : TEXT3, borderBottom: `1px solid ${BORDER}`, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.property_address || <span style={{ color: TEXT3 }}>—</span>}
+                          </td>
+                          <td style={{ padding: '7px 10px', fontSize: 12, color: row.dashboard_category ? TEXT2 : TEXT3, borderBottom: `1px solid ${BORDER}`, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.dashboard_category || <span style={{ color: TEXT3 }}>—</span>}
+                          </td>
+                          <td style={{ padding: '7px 10px', borderBottom: `1px solid ${BORDER}` }}>
+                            {statusBadge(row.categorisation_status)}
                           </td>
                         </tr>
                       )
