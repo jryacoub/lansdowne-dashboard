@@ -132,18 +132,21 @@ export default function Home() {
   const [filters, setFilters] = useState<{ [key: string]: string[] }>({})
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [starlingTxns, setStarlingTxns] = useState<any[]>([])
 
   useEffect(() => {
     async function fetchData() {
-      const [{ data: txns }, { data: props }] = await Promise.all([
+      const [{ data: txns }, { data: props }, { data: starling }] = await Promise.all([
         supabase.from('transactions').select('*'),
         supabase.from('properties_master').select('property_id, address, city').order('property_id'),
+        supabase.from('starling_transactions').select('*').order('date', { ascending: false }),
       ])
       if (txns) setData(txns)
       if (props) {
         setAllProperties(props)
         if (props.length > 0) setSelectedPropertyId(props[0].property_id)
       }
+      if (starling) setStarlingTxns(starling)
       setLoading(false)
     }
     fetchData()
@@ -615,6 +618,132 @@ export default function Home() {
           </table>
         </div>
       </div>
+
+      {/* ── STARLING BANK TRANSACTIONS ───────────────────────────────────── */}
+      {(() => {
+        const totalIn = starlingTxns.reduce((s, r) => s + (Number(r.amount_gbp) > 0 ? Number(r.amount_gbp) : 0), 0)
+        const totalOut = starlingTxns.reduce((s, r) => s + (Number(r.amount_gbp) < 0 ? Number(r.amount_gbp) : 0), 0)
+        const closingBalance = starlingTxns.length > 0 ? Number(starlingTxns[0].balance_gbp) : 0
+        const dates = starlingTxns.map(r => r.date).filter(Boolean).sort()
+        const dateRange = dates.length > 0
+          ? `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}`
+          : '—'
+        return (
+          <>
+            {/* Section divider */}
+            <div style={{ margin: '52px 0 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 3, height: 18, background: GOLD, borderRadius: 2 }} />
+              <span style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '3px', fontWeight: 600 }}>
+                Starling Bank Transactions
+              </span>
+              <span style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
+                color: '#070c14', background: GOLD, borderRadius: 3, padding: '2px 7px',
+              }}>
+                Pending Categorisation
+              </span>
+              <div style={{ flex: 1, height: 1, background: BORDER }} />
+            </div>
+
+            <div style={{ fontSize: 12, color: TEXT3, marginBottom: 20, fontStyle: 'italic' }}>
+              These transactions require allocation before being included in portfolio reporting.
+            </div>
+
+            {/* Summary bar */}
+            <div style={{
+              display: 'flex', gap: 0, marginBottom: 20,
+              background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, overflow: 'hidden',
+            }}>
+              {[
+                { label: 'Transactions', value: String(starlingTxns.length), color: TEXT },
+                { label: 'Date Range', value: dateRange, color: TEXT2 },
+                { label: 'Total In', value: `£${totalIn.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`, color: GREEN },
+                { label: 'Total Out', value: `£${Math.abs(totalOut).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`, color: RED },
+                { label: 'Closing Balance', value: `£${closingBalance.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: GOLD },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  flex: 1, padding: '14px 18px',
+                  borderRight: i < 4 ? `1px solid ${BORDER}` : 'none',
+                }}>
+                  <div style={{ fontSize: 10, color: TEXT3, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 600, marginBottom: 6 }}>
+                    {item.label}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: item.color, fontVariantNumeric: 'tabular-nums' }}>
+                    {item.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Transactions table */}
+            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, overflow: 'hidden', marginBottom: 16 }}>
+              <div style={{ maxHeight: 480, overflowY: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {['Date', 'Counter Party', 'Reference', 'Type', 'Amount', 'Balance', 'Category'].map((h, i) => (
+                        <th key={h} align={i >= 4 && i <= 5 ? 'right' : 'left'} style={{
+                          position: 'sticky', top: 0, background: SURFACE2, zIndex: 2,
+                          padding: i === 0 ? '9px 10px 9px 18px' : i === 5 ? '9px 18px 9px 10px' : '9px 10px',
+                          fontWeight: 600, fontSize: 10, color: TEXT3,
+                          textTransform: 'uppercase', letterSpacing: '1.2px',
+                          borderBottom: `1px solid ${BORDER2}`,
+                        }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {starlingTxns.map((row, idx) => {
+                      const amt = Number(row.amount_gbp)
+                      const isIn = amt >= 0
+                      return (
+                        <tr key={row.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.012)' }}>
+                          <td style={{ padding: '7px 10px 7px 18px', fontSize: 12, color: TEXT3, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}` }}>
+                            {row.date ? fmtDate(row.date) : '—'}
+                          </td>
+                          <td style={{ padding: '7px 10px', fontSize: 12, color: TEXT2, borderBottom: `1px solid ${BORDER}`, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.counter_party || '—'}
+                          </td>
+                          <td style={{ padding: '7px 10px', fontSize: 12, color: TEXT2, borderBottom: `1px solid ${BORDER}`, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.reference || '—'}
+                          </td>
+                          <td style={{ padding: '7px 10px', borderBottom: `1px solid ${BORDER}` }}>
+                            <span style={{
+                              fontSize: 10, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
+                              color: TEXT2, background: 'rgba(255,255,255,0.05)',
+                              borderRadius: 3, padding: '2px 6px',
+                            }}>
+                              {row.type || '—'}
+                            </span>
+                          </td>
+                          <td align="right" style={{
+                            padding: '7px 10px', fontSize: 12, fontWeight: 700,
+                            color: isIn ? GREEN : RED, fontVariantNumeric: 'tabular-nums',
+                            borderBottom: `1px solid ${BORDER}`,
+                          }}>
+                            {isIn ? '+' : ''}£{Math.abs(amt).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td align="right" style={{
+                            padding: '7px 18px 7px 10px', fontSize: 12, color: TEXT2,
+                            fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${BORDER}`,
+                          }}>
+                            £{Number(row.balance_gbp).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '7px 10px', fontSize: 12, color: row.spending_category ? GOLD : TEXT3, borderBottom: `1px solid ${BORDER}` }}>
+                            {row.spending_category || <span style={{ color: TEXT3, fontStyle: 'italic' }}>Uncategorised</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
       {/* Footer */}
       <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between' }}>
