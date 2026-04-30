@@ -385,9 +385,13 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 export default function PropertySelector({
   selectedId: externalId,
   onSelectId,
+  mode,
+  onNavigateToDetail,
 }: {
   selectedId?: string
   onSelectId?: (id: string) => void
+  mode?: 'summary' | 'detail'
+  onNavigateToDetail?: () => void
 } = {}) {
   const [properties, setProperties] = useState<Property[]>([])
   const [capitalTransactions, setCapitalTransactions] = useState<CapitalTransaction[]>([])
@@ -449,6 +453,26 @@ export default function PropertySelector({
   const showAll = hasParent && (!externalId || externalId === '')
 
   if (showAll && properties.length > 0) {
+    if (mode === 'detail') {
+      return (
+        <div style={{ fontFamily: FONT, color: TEXT }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+            <div style={{ width: 3, height: 16, background: GOLD, borderRadius: 2 }} />
+            <span style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '3px', fontWeight: 600 }}>
+              Property Analysis
+            </span>
+          </div>
+          <div style={{
+            background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4,
+            padding: '48px 32px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 13, color: TEXT3, letterSpacing: '0.3px' }}>
+              Select a property from the filter bar to view detailed investment analysis.
+            </div>
+          </div>
+        </div>
+      )
+    }
     const rows = properties.map(p => {
       const netCash = p.cash_deposit_phase1 + p.stamp_duty + p.solicitor_fees +
         p.agent_fee + p.renovation_cost + p.renovation_mgmt_fee - p.equity_release
@@ -574,6 +598,9 @@ export default function PropertySelector({
 
   const property = properties.find(p => p.property_id === selectedId)
   if (!property) return null
+
+  const showSummarySections = !mode || mode === 'summary'
+  const showDetailSections = !mode || mode === 'detail'
 
   // ─── Core calculations ─────────────────────────────────────────────────────
   const totalCashInvested =
@@ -905,14 +932,17 @@ export default function PropertySelector({
       </div>
 
       {/* ── KPI CARDS ──────────────────────────────────────────────────── */}
+      {showSummarySections && (
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <KpiCard label="Cash-on-Cash ROI" value={fmtPct(roi)} sub={`£${fmt(netCashInvested)} net deployed`} color={roiColor} />
         <KpiCard label="Equity" value={`£${fmt(equity)}`} sub={`${fmt(property.market_value_est)} MV · ${((equity / property.market_value_est) * 100).toFixed(0)}% ownership`} color={BLUE} />
         <KpiCard label="Gross Yield" value={fmtPct(grossYield)} sub={`Net yield ${fmtPct(netYield)}`} color="#a78bfa" />
         <KpiCard label="Monthly Cashflow" value={`£${fmt(monthlyCashflow)}`} sub={`£${fmt(annualCashflow)} p.a.`} color={cashflowColor} />
       </div>
+      )}
 
       {/* ── ASSET APPRECIATION CHART ────────────────────────────────────── */}
+      {showSummarySections && (
       <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: '18px 20px', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <SectionHeading>Asset Appreciation</SectionHeading>
@@ -951,11 +981,13 @@ export default function PropertySelector({
           <Line data={chartData} options={chartOptions as any} plugins={(breakevenPlugin ? [breakevenPlugin] : []) as any} />
         </div>
       </div>
+      )}
 
       {/* ── DEAL SHEET PANELS ──────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
 
         {/* ── INVESTMENT SUMMARY ──────────────────────────────────────── */}
+        {showDetailSections && (
         <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: '18px 20px', flex: 1.4, minWidth: 360 }}>
           <SectionHeading>Investment Summary</SectionHeading>
           <PanelColHeaders col2="Budget" col3="Actual" />
@@ -983,8 +1015,10 @@ export default function PropertySelector({
             <NotesKey notes={[{ index: 1, text: 'Budgeted figure shown — no matching entry recorded in capital transactions' }]} />
           )}
         </div>
+        )}
 
         {/* ── INCOME & RUNNING COSTS ──────────────────────────────────── */}
+        {showSummarySections && (
         <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: '18px 20px', flex: 1.4, minWidth: 360 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
             <SectionHeading>Income & Running Costs (Phase 2)</SectionHeading>
@@ -1026,8 +1060,10 @@ export default function PropertySelector({
             { index: 3, text: 'Projected figure shown — derived from mortgage rate × outstanding balance' },
           ]} />
         </div>
+        )}
 
         {/* ── VALUATION & EQUITY ─────────────────────────────────────── */}
+        {showDetailSections && (
         <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: '18px 20px', flex: 1, minWidth: 260 }}>
           <SectionHeading>Valuation & Equity</SectionHeading>
           <StatRow label="Base Case Revaluation"    value={`£${fmt(property.revaluation_estimate)}`} />
@@ -1057,6 +1093,7 @@ export default function PropertySelector({
             </>
           )}
         </div>
+        )}
       </div>
 
       {/* ── SCENARIOS TABLE ────────────────────────────────────────────── */}
@@ -1078,7 +1115,7 @@ export default function PropertySelector({
                 </tr>
               </thead>
               <tbody>
-                {propScenarios.map((s, idx) => {
+                {(mode === 'summary' ? propScenarios.slice(0, 2) : propScenarios).map((s, idx) => {
                   const sMortgage = s.revaluation_estimate * (1 - s.deposit_pct_phase2)
                   const sMortgageInterest = sMortgage * s.mortgage_rate_phase2
                   const sNetCashIn = totalCashInvested - s.equity_release
@@ -1109,6 +1146,19 @@ export default function PropertySelector({
               </tbody>
             </table>
           </div>
+          {mode === 'summary' && propScenarios.length > 2 && onNavigateToDetail && (
+            <div style={{ padding: '12px 20px', borderTop: `1px solid ${BORDER}` }}>
+              <button
+                onClick={onNavigateToDetail}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT,
+                  fontSize: 12, color: GOLD, fontWeight: 600, letterSpacing: '0.3px', padding: 0,
+                }}
+              >
+                View all scenarios →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
