@@ -8,7 +8,7 @@ const TEXT = '#dde2ed'
 const TEXT3 = '#4a5570'
 const FONT = 'var(--font-geist-sans), system-ui, -apple-system, sans-serif'
 
-const TABS = ['Summary', 'Property Detail', 'Transactions', 'Cost Intelligence'] as const
+const TABS = ['Summary', 'Property Detail', 'Capital Stack', 'Rent Roll', 'Cost Intelligence', 'Scenarios', 'Transactions', 'Triage'] as const
 export type TabId = (typeof TABS)[number]
 
 export default function TabLayout({
@@ -20,7 +20,7 @@ export default function TabLayout({
 }) {
   return (
     <nav style={{
-      display: 'flex', gap: 0, borderBottom: `1px solid ${BORDER}`,
+      display: 'flex', flexWrap: 'wrap' as const, gap: 0, borderBottom: `1px solid ${BORDER}`,
       marginBottom: 36,
     }}>
       {TABS.map(tab => {
@@ -32,7 +32,7 @@ export default function TabLayout({
             style={{
               background: 'none', border: 'none', borderBottom: active ? `2px solid ${GOLD}` : '2px solid transparent',
               padding: '10px 20px', cursor: 'pointer', fontFamily: FONT,
-              fontSize: 12, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase',
+              fontSize: 11, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase',
               color: active ? TEXT : TEXT3,
               transition: 'color 0.15s, border-color 0.15s',
             }}

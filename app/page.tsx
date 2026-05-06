@@ -7,6 +7,11 @@ import { supabase } from '@/lib/supabase'
 import PropertySelector from '@/components/PropertySelector'
 import PasswordGate from '@/components/PasswordGate'
 import TabLayout, { type TabId } from '@/components/TabLayout'
+import CapitalStack from '@/components/CapitalStack'
+import RentRoll from '@/components/RentRoll'
+import CostIntelligence from '@/components/CostIntelligence'
+import ScenarioWorkbench from '@/components/ScenarioWorkbench'
+import TriageInbox from '@/components/TriageInbox'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -354,7 +359,8 @@ export default function Home() {
 
       {/* ── UNIFIED FILTER BAR ──────────────────────────────────────────── */}
       <div style={{
-        display: 'flex', gap: 16, alignItems: 'center', marginBottom: activeTab === 'Summary' ? 40 : 36,
+        display: (['Summary', 'Property Detail', 'Transactions'] as TabId[]).includes(activeTab) ? 'flex' : 'none',
+        gap: 16, alignItems: 'center', marginBottom: activeTab === 'Summary' ? 40 : 36,
         padding: '12px 18px', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4,
         flexWrap: 'wrap',
       }}>
@@ -994,19 +1000,19 @@ export default function Home() {
       )}
 
       {/* ── COST INTELLIGENCE TAB ────────────────────────────────────────── */}
-      {activeTab === 'Cost Intelligence' && (
-        <div style={{
-          background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4,
-          padding: '64px 32px', textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '3px', fontWeight: 600, marginBottom: 16 }}>
-            Cost Intelligence
-          </div>
-          <div style={{ fontSize: 14, color: TEXT3, letterSpacing: '0.3px', lineHeight: 1.6 }}>
-            Cost benchmarking and supplier recommendations coming soon.
-          </div>
-        </div>
-      )}
+      {activeTab === 'Cost Intelligence' && <CostIntelligence />}
+
+      {/* ── CAPITAL STACK TAB ──────────────────────────────────────────────── */}
+      {activeTab === 'Capital Stack' && <CapitalStack />}
+
+      {/* ── RENT ROLL TAB ──────────────────────────────────────────────────── */}
+      {activeTab === 'Rent Roll' && <RentRoll />}
+
+      {/* ── SCENARIOS TAB ──────────────────────────────────────────────────── */}
+      {activeTab === 'Scenarios' && <ScenarioWorkbench />}
+
+      {/* ── TRIAGE TAB ─────────────────────────────────────────────────────── */}
+      {activeTab === 'Triage' && <TriageInbox />}
 
       {/* Footer */}
       <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between' }}>
