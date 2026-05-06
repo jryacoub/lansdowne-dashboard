@@ -310,7 +310,10 @@ export default function Home() {
     }
 
     const roi = totNetCashInvested > 0 ? (totCashflow / totNetCashInvested) * 100 : 0
-    const equityMultiple = totCashInvested > 0 ? (totEquity + txnNetPnL) / totCashInvested : 0
+    // Equity multiple = (current equity + cumulative cashflow) / NET cash invested
+    // (i.e. how many times has each £ still at risk paid back). Using net cash, not gross,
+    // because equity already released should not double-count.
+    const equityMultiple = totNetCashInvested > 0 ? (totEquity + txnNetPnL) / totNetCashInvested : 0
     const ltv = totMV > 0 ? (totMortgage / totMV) * 100 : 0
     const monthlyCashflow = totCashflow / 12
 
@@ -322,6 +325,7 @@ export default function Home() {
       isAllProperties,
       propertyCount: props.length,
       totCashflow,
+      totNetCashInvested,
     }
   })()
 
@@ -501,6 +505,7 @@ export default function Home() {
           selectedId={selectedPropertyId}
           onSelectId={setSelectedPropertyId}
           onNavigateToDetail={() => setActiveTab('Property Detail')}
+          hideKpiStrip={activeTab === 'Summary'}
         />
       </div>
 

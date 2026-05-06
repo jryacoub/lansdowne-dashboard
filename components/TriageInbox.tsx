@@ -204,9 +204,13 @@ export default function TriageInbox() {
         flexWrap: 'wrap',
       }}>
         <span style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}>
-          Triage Inbox
+          Triage Inbox · Rule-based Classifier
         </span>
         <span style={{ fontSize: 12, color: TEXT3 }}>{pendingTxns.length} pending</span>
+        <span style={{ fontSize: 11, color: TEXT3, lineHeight: 1.5 }}>
+          Suggestions are rule-based — counter-party frequency match + regex fallback.
+          <span style={{ color: TEXT3 }}> (Not LLM-powered — upgrade path: wire Anthropic API for context-aware classification.)</span>
+        </span>
 
         <div style={{ width: 1, height: 20, background: BORDER2 }} />
 

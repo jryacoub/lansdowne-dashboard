@@ -31,6 +31,35 @@ function stddev(values: number[]): number {
   return Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length)
 }
 
+// ── Category aliasing — make accounting jargon human ─────────────────────────
+const CATEGORY_LABEL: Record<string, string> = {
+  Disbursement: 'Maintenance',
+  Fee: 'Management Fee',
+  Utilities: 'Utilities',
+  Reimbursement: 'Tenant Reimbursement',
+  'Rent Paid': 'Rent (income)',
+}
+const CATEGORY_TOOLTIP: Record<string, string> = {
+  Disbursement: 'Maintenance work performed and materials',
+  Fee: 'Letting agent fee — typically 9% of rent',
+  Utilities: 'Gas, electric, water charges',
+  Reimbursement: 'Refunds & credits to tenants',
+  'Rent Paid': 'Rent collected from tenants',
+}
+const labelOf = (raw: string) => CATEGORY_LABEL[raw] ?? raw
+const tipOf = (raw: string) => CATEGORY_TOOLTIP[raw] ?? raw
+
+// ── Address normalisation: roll "Flat 1 66 Headingley Mount" → "66 Headingley Mount" ─
+function normaliseAddress(raw: string | null, masterAddrs: string[]): string | null {
+  if (!raw) return null
+  const lower = raw.toLowerCase()
+  for (const m of masterAddrs) {
+    const key = m.split(',')[0].trim().toLowerCase()
+    if (lower.includes(key)) return m // canonical address from properties_master
+  }
+  return raw // unrecognised — kept for orphan detection
+}
+
 export default function CostIntelligence() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [starlingTxns, setStarlingTxns] = useState<any[]>([])
@@ -52,6 +81,20 @@ export default function CostIntelligence() {
     load()
   }, [])
 
+  const masterAddrs = useMemo(() => properties.map((p: any) => p.address as string), [properties])
+
+  // Orphans = transaction property addresses with no matching master record
+  const orphans = useMemo(() => {
+    const seen = new Map<string, number>()
+    for (const r of transactions) {
+      const norm = normaliseAddress(r['Property address'], masterAddrs)
+      if (!norm) continue
+      const isOrphan = !masterAddrs.includes(norm)
+      if (isOrphan) seen.set(norm, (seen.get(norm) || 0) + 1)
+    }
+    return Array.from(seen.entries()).map(([address, count]) => ({ address, count }))
+  }, [transactions, masterAddrs])
+
   const { benchmarkGrid, categories, anomalies, supplierTable, savings } = useMemo(() => {
     // Exclude rent — only costs
     const costTxns = transactions.filter(t => t['Item type'] !== 'Rent Paid')
@@ -59,24 +102,27 @@ export default function CostIntelligence() {
     // Get unique categories and properties
     const categories = Array.from(new Set(costTxns.map(t => t['Item type']).filter(Boolean))).sort()
 
-    // Build property × category totals
+    // Build property × category totals — normalise addresses to roll up sub-units
     const propCatTotals: Record<string, Record<string, number>> = {}
     for (const p of properties) {
       propCatTotals[p.property_id] = {}
-      const addrKey = (p.address || '').split(',')[0].trim().toLowerCase()
-      for (const t of costTxns) {
-        const tAddr = String(t['Property address'] || '').toLowerCase()
-        if (tAddr.includes(addrKey)) {
-          const cat = t['Item type'] || 'Other'
-          propCatTotals[p.property_id][cat] = (propCatTotals[p.property_id][cat] || 0) + Math.abs(Number(t['Item amount inc VAT'] || 0))
-        }
-      }
+    }
+    for (const t of costTxns) {
+      const propRaw = t['Property address']
+      const type = t['Item type'] || 'Other'
+      const amt = Math.abs(Number(t['Item amount inc VAT'] || 0))
+      if (!propRaw) continue
+      const norm = normaliseAddress(propRaw, masterAddrs)
+      if (!norm || !masterAddrs.includes(norm)) continue // skip orphans
+      const matchedProp = properties.find((p: any) => p.address === norm)
+      if (!matchedProp) continue
+      propCatTotals[matchedProp.property_id][type] = (propCatTotals[matchedProp.property_id][type] || 0) + amt
     }
 
     // Compute medians per category
     const catMedians: Record<string, number> = {}
     for (const cat of categories) {
-      const vals = properties.map(p => propCatTotals[p.property_id]?.[cat] || 0).filter(v => v > 0)
+      const vals = properties.map((p: any) => propCatTotals[p.property_id]?.[cat] || 0).filter(v => v > 0)
       catMedians[cat] = median(vals)
     }
 
@@ -138,7 +184,7 @@ export default function CostIntelligence() {
       supplierTable,
       savings: savings.slice(0, 10),
     }
-  }, [transactions, starlingTxns, properties])
+  }, [transactions, starlingTxns, properties, masterAddrs])
 
   if (loading) return (
     <div style={{ padding: 48, color: TEXT3, fontSize: 13, fontFamily: FONT }}>Loading cost data…</div>
@@ -146,12 +192,33 @@ export default function CostIntelligence() {
 
   return (
     <div style={{ fontFamily: FONT }}>
+      {/* ── Data quality footer ─────────────────────────────────────────── */}
+      {orphans.length > 0 && (
+        <div style={{
+          background: 'rgba(245,158,11,0.06)',
+          border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: 4, padding: '12px 16px', fontSize: 12, color: AMBER,
+          display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24,
+        }}>
+          <span style={{ fontSize: 16 }}>⚠</span>
+          <span>
+            <strong>{orphans.length} orphan address{orphans.length > 1 ? 'es' : ''} excluded:</strong>{' '}
+            {orphans.map((o) => `${o.address} (${o.count} txns)`).join(', ')}.
+            Not present in <code>properties_master</code> — needs investigation.
+          </span>
+        </div>
+      )}
+
       {/* Benchmark table */}
       <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, overflow: 'hidden', marginBottom: 32 }}>
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${BORDER2}` }}>
           <div style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}>
             Property × Category Benchmark
           </div>
+        </div>
+        <div style={{ fontSize: 11, color: TEXT3, padding: '12px 18px 0', lineHeight: 1.5 }}>
+          Sub-units rolled up to parent property (e.g. Flat 1/2/3 → 66 Headingley Mount).
+          Compares each property&apos;s total spend per category against the portfolio median.
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: categories.length * 100 + 200 }}>
@@ -171,8 +238,8 @@ export default function CostIntelligence() {
                     padding: '9px 10px', fontWeight: 600, fontSize: 10, color: TEXT3,
                     textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: `1px solid ${BORDER2}`,
                     whiteSpace: 'nowrap',
-                  }}>
-                    {cat}
+                  }} title={tipOf(cat)}>
+                    {labelOf(cat)}
                   </th>
                 ))}
               </tr>
@@ -240,8 +307,11 @@ export default function CostIntelligence() {
         <div style={{ flex: 1, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: `1px solid ${BORDER2}` }}>
             <div style={{ fontSize: 10, color: RED, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}>
-              Anomalies ({'>'}2σ)
+              Anomalies ({'>'}2σ above category mean)
             </div>
+          </div>
+          <div style={{ fontSize: 11, color: TEXT3, padding: '10px 18px 0', lineHeight: 1.5 }}>
+            Transactions whose amount is more than 2 standard deviations above the average for the same property × category. Worth investigating but not necessarily wrong.
           </div>
           <div style={{ maxHeight: 360, overflowY: 'auto' }}>
             {anomalies.length === 0 ? (
@@ -249,9 +319,9 @@ export default function CostIntelligence() {
             ) : anomalies.map((a, i) => (
               <div key={i} style={{ padding: '10px 18px', borderBottom: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: 12, color: TEXT2 }}>{a['Item description'] || a['Item type']}</div>
+                  <div style={{ fontSize: 12, color: TEXT2 }}>{a['Item description'] || labelOf(a['Item type'] || '')}</div>
                   <div style={{ fontSize: 10, color: TEXT3, marginTop: 2 }}>
-                    {a['Property address']?.split(',')[0]} · {a['Item type']}
+                    {a['Property address']?.split(',')[0]} · {labelOf(a['Item type'] || '')}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -296,6 +366,9 @@ export default function CostIntelligence() {
               Savings Opportunities
             </div>
           </div>
+          <div style={{ fontSize: 11, color: TEXT3, padding: '10px 18px 0', lineHeight: 1.5 }}>
+            Properties spending more than 1.5× the portfolio median for a given category. Sub-units rolled up — large multi-flat properties will naturally show higher absolute spend; treat as flagging not as fault.
+          </div>
           <div style={{ maxHeight: 360, overflowY: 'auto' }}>
             {savings.length === 0 ? (
               <div style={{ padding: '24px 18px', color: TEXT3, fontSize: 12, textAlign: 'center' }}>No savings flagged.</div>
@@ -303,8 +376,7 @@ export default function CostIntelligence() {
               <div key={i} style={{ padding: '10px 18px', borderBottom: `1px solid ${BORDER}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: 12, color: TEXT2 }}>{s.property}</div>
-                    <div style={{ fontSize: 10, color: TEXT3, marginTop: 2 }}>{s.category}</div>
+                    <div style={{ fontSize: 12, color: TEXT2 }}>{s.property} — {labelOf(s.category)}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: RED, fontVariantNumeric: 'tabular-nums' }}>

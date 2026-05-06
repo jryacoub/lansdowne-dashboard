@@ -387,11 +387,13 @@ export default function PropertySelector({
   onSelectId,
   mode,
   onNavigateToDetail,
+  hideKpiStrip = false,
 }: {
   selectedId?: string
   onSelectId?: (id: string) => void
   mode?: 'summary' | 'detail'
   onNavigateToDetail?: () => void
+  hideKpiStrip?: boolean
 } = {}) {
   const [properties, setProperties] = useState<Property[]>([])
   const [capitalTransactions, setCapitalTransactions] = useState<CapitalTransaction[]>([])
@@ -932,7 +934,7 @@ export default function PropertySelector({
       </div>
 
       {/* ── KPI CARDS ──────────────────────────────────────────────────── */}
-      {showSummarySections && (
+      {showSummarySections && !hideKpiStrip && (
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <KpiCard label="Cash-on-Cash ROI" value={fmtPct(roi)} sub={`£${fmt(netCashInvested)} net deployed`} color={roiColor} />
         <KpiCard label="Equity" value={`£${fmt(equity)}`} sub={`${fmt(property.market_value_est)} MV · ${((equity / property.market_value_est) * 100).toFixed(0)}% ownership`} color={BLUE} />

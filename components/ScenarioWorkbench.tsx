@@ -60,7 +60,9 @@ function computeMetrics(p: any, overrides: Record<string, number>) {
   const cashflow = effectiveRent - opCosts - mortgageInterest
   const roi = netCash > 0 ? (cashflow / netCash) * 100 : 0
   const equity = (p.market_value_est || 0) - mortgage
-  const equityMultiple = totalCash > 0 ? (equity + cashflow) / totalCash : 0
+  // Equity multiple = (current equity + annual cashflow) ÷ NET cash invested.
+  // Net cash because money already pulled back via refinance shouldn't double count.
+  const equityMultiple = netCash > 0 ? (equity + cashflow) / netCash : 0
   const ltv = (p.market_value_est || 0) > 0 ? (mortgage / (p.market_value_est || 1)) * 100 : 0
 
   return { roi, equityMultiple, cashflow, ltv, mortgage, effectiveRent }
@@ -219,6 +221,39 @@ export default function ScenarioWorkbench() {
       <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
         {/* Sliders */}
         <div style={{ flex: 1, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: '20px 24px' }}>
+          {/* Saved scenario presets */}
+          {propScenarios.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: 8 }}>
+                Saved Presets · {propScenarios.length} on file
+              </div>
+              <div style={{ fontSize: 11, color: TEXT3, marginBottom: 10, lineHeight: 1.5 }}>
+                Click to load into the sliders below.
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {propScenarios.map((s) => (
+                  <button
+                    key={s.scenario_id}
+                    onClick={() => setSliders({
+                      annualRent: Number(s.annual_rent_phase2 || selectedProp?.annual_rent_phase2 || 0),
+                      mortgageRate: Number(s.mortgage_rate_phase2 || selectedProp?.mortgage_rate_phase2 || 0.05),
+                      depositPct: Number(s.deposit_pct_phase2 || selectedProp?.deposit_pct_phase2 || 0.25),
+                      revaluation: Number(s.revaluation_estimate || selectedProp?.revaluation_estimate || 0),
+                      voidWeeks: 0,
+                    })}
+                    style={{
+                      padding: '6px 14px', fontSize: 11, fontWeight: 600,
+                      border: `1px solid ${BORDER2}`, background: 'transparent',
+                      color: TEXT2, borderRadius: 3, cursor: 'pointer',
+                      fontFamily: FONT, letterSpacing: '0.5px',
+                    }}
+                  >
+                    {s.scenario_label || 'Untitled'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: 20 }}>
             Scenario Parameters
           </div>

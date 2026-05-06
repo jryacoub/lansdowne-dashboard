@@ -98,7 +98,9 @@ export default function CapitalStack() {
       borderColor: GOLD,
       backgroundColor: 'rgba(201,168,66,0.15)',
       pointBackgroundColor: GOLD,
-      tension: 0.3,
+      pointRadius: 6,
+      pointHoverRadius: 8,
+      tension: 0,
       fill: true,
     }],
   }
@@ -188,35 +190,43 @@ export default function CapitalStack() {
 
         {/* Valuations chart */}
         <div style={{ flex: 1, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: '20px 24px' }}>
-          <div style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: 20 }}>
-            Valuation History
+          <div style={{ fontSize: 10, color: GOLD, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: 12 }}>
+            Valuation Milestones
           </div>
           {propValuations.length > 0 ? (
-            <Line
-              data={lineData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: true,
-                scales: {
-                  x: { ticks: { color: TEXT3, font: { size: 10 } }, grid: { color: BORDER } },
-                  y: {
-                    ticks: {
-                      color: TEXT3,
-                      font: { size: 10 },
-                      callback: (v: string | number) => `£${Number(v).toLocaleString()}`,
+            <>
+              <div style={{ fontSize: 11, color: TEXT3, marginBottom: 12, lineHeight: 1.5 }}>
+                {propValuations.length} valuation point{propValuations.length === 1 ? '' : 's'} on file.
+                {propValuations.length < 5 && ' Limited history — add interim refi estimates to build a real curve.'}
+              </div>
+              <div style={{ height: 180 }}>
+                <Line
+                  data={lineData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      x: { ticks: { color: TEXT3, font: { size: 10 } }, grid: { color: BORDER } },
+                      y: {
+                        ticks: {
+                          color: TEXT3,
+                          font: { size: 10 },
+                          callback: (v: string | number) => `£${Number(v).toLocaleString()}`,
+                        },
+                        grid: { color: BORDER },
+                      },
                     },
-                    grid: { color: BORDER },
-                  },
-                },
-                plugins: {
-                  legend: { display: false },
-                  tooltip: { backgroundColor: SURFACE, titleColor: TEXT2, bodyColor: TEXT, borderColor: BORDER2, borderWidth: 1 },
-                },
-              }}
-            />
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: { backgroundColor: SURFACE, titleColor: TEXT2, bodyColor: TEXT, borderColor: BORDER2, borderWidth: 1 },
+                    },
+                  }}
+                />
+              </div>
+            </>
           ) : (
             <div style={{ padding: '40px 0', textAlign: 'center', color: TEXT3, fontSize: 12 }}>
-              No valuation data available for this property.
+              No <code>valuations</code> rows on file — chart synthesised from purchase price + current MV only. Add real revaluation events to populate.
             </div>
           )}
         </div>
