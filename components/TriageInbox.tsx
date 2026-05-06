@@ -14,7 +14,7 @@ const AMBER = '#f59e0b'
 const BLUE = '#4a9eff'
 const TEXT = '#dde2ed'
 const TEXT2 = '#8e9ab5'
-const TEXT3 = '#4a5570'
+const TEXT3 = '#7d889d'
 const FONT = 'var(--font-geist-sans), system-ui, -apple-system, sans-serif'
 
 const CATEGORY_REGEX: [RegExp, string][] = [

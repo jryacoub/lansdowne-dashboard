@@ -26,7 +26,7 @@ const RED = '#ef4444'
 const AMBER = '#f59e0b'
 const TEXT = '#dde2ed'
 const TEXT2 = '#8e9ab5'
-const TEXT3 = '#4a5570'
+const TEXT3 = '#7d889d'
 const FONT = 'var(--font-geist-sans), system-ui, -apple-system, sans-serif'
 
 const fmt = (n: number) => n.toLocaleString('en-GB', { maximumFractionDigits: 0 })
@@ -89,7 +89,12 @@ export default function CapitalStack() {
   const waterfallTotal = waterfallItems.reduce((s, i) => s + i.value, 0)
 
   // Valuations chart for selected property
-  const propValuations = valuations.filter(v => v.property_id === selectedPropId)
+  // valuations table has property_id = NULL on all rows, so match on address too
+  const selectedAddrKey = selectedProp ? (selectedProp.address || '').split(',')[0].trim().toLowerCase() : ''
+  const propValuations = valuations.filter(v =>
+    v.property_id === selectedPropId ||
+    (selectedAddrKey && (v.address || '').toLowerCase().includes(selectedAddrKey))
+  )
   const lineData = {
     labels: propValuations.map(v => v.date),
     datasets: [{
@@ -111,7 +116,7 @@ export default function CapitalStack() {
   return (
     <div style={{ fontFamily: FONT }}>
       {/* Portfolio KPI cards */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
         {[
           { label: 'Total Deployed', value: `£${fmt(totalDeployed)}`, color: GOLD },
           { label: 'Equity Released', value: `£${fmt(totalEquityReleased)}`, color: GREEN },
@@ -120,12 +125,12 @@ export default function CapitalStack() {
         ].map((kpi, i) => (
           <div key={i} style={{
             flex: 1, background: SURFACE, border: `1px solid ${BORDER}`,
-            borderRadius: 4, padding: '20px 24px',
+            borderRadius: 4, padding: '14px 18px',
           }}>
             <div style={{ fontSize: 10, color: TEXT3, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 12, fontWeight: 600 }}>
               {kpi.label}
             </div>
-            <div style={{ fontSize: 30, fontWeight: 700, color: kpi.color, letterSpacing: '-0.5px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: kpi.color, letterSpacing: '-0.5px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
               {kpi.value}
             </div>
           </div>

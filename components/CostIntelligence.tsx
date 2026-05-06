@@ -13,7 +13,7 @@ const RED = '#ef4444'
 const AMBER = '#f59e0b'
 const TEXT = '#dde2ed'
 const TEXT2 = '#8e9ab5'
-const TEXT3 = '#4a5570'
+const TEXT3 = '#7d889d'
 const FONT = 'var(--font-geist-sans), system-ui, -apple-system, sans-serif'
 
 const fmt = (n: number) => n.toLocaleString('en-GB', { maximumFractionDigits: 0 })

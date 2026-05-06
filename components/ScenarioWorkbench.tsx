@@ -24,7 +24,7 @@ const RED = '#ef4444'
 const AMBER = '#f59e0b'
 const TEXT = '#dde2ed'
 const TEXT2 = '#8e9ab5'
-const TEXT3 = '#4a5570'
+const TEXT3 = '#7d889d'
 const FONT = 'var(--font-geist-sans), system-ui, -apple-system, sans-serif'
 
 const fmt = (n: number) => n.toLocaleString('en-GB', { maximumFractionDigits: 0 })
@@ -265,13 +265,30 @@ export default function ScenarioWorkbench() {
                   {s.toDisplay(sliders[s.key] ?? 0)}
                 </span>
               </div>
-              <input
-                type="range"
-                min={s.min} max={s.max} step={s.step}
-                value={sliders[s.key] ?? 0}
-                onChange={e => setSliders(prev => ({ ...prev, [s.key]: Number(e.target.value) }))}
-                style={{ width: '100%', accentColor: GOLD, cursor: 'pointer' }}
-              />
+              <div style={{ position: 'relative', width: '100%', height: 16 }}>
+                {/* Track background */}
+                <div style={{
+                  position: 'absolute', top: '50%', left: 0, right: 0,
+                  height: 3, borderRadius: 2, background: BORDER2, transform: 'translateY(-50%)',
+                }} />
+                {/* Filled portion */}
+                <div style={{
+                  position: 'absolute', top: '50%', left: 0,
+                  width: `${((sliders[s.key] ?? 0) - s.min) / (s.max - s.min) * 100}%`,
+                  height: 3, borderRadius: 2, background: GOLD, transform: 'translateY(-50%)',
+                }} />
+                <input
+                  type="range"
+                  min={s.min} max={s.max} step={s.step}
+                  value={sliders[s.key] ?? 0}
+                  onChange={e => setSliders(prev => ({ ...prev, [s.key]: Number(e.target.value) }))}
+                  style={{
+                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'transparent', accentColor: GOLD, cursor: 'pointer',
+                    margin: 0, WebkitAppearance: 'none', appearance: 'none',
+                  }}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -286,13 +303,13 @@ export default function ScenarioWorkbench() {
           ].map((m, i) => (
             <div key={i} style={{
               background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4,
-              padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <div>
                 <div style={{ fontSize: 10, color: TEXT3, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: 6 }}>
                   {m.label}
                 </div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: '-0.5px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: '-0.5px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                   {m.scenario}
                 </div>
               </div>
